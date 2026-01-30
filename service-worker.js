@@ -1,8 +1,10 @@
-const CACHE_NAME = 'dehnuebungen-timer-v1';
+const CACHE_NAME = 'dehnuebungen-timer-v2';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
