@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" fill="#2563eb" rx="19.200000000000003"/>
-  <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="96"
-        font-weight="bold" fill="white" text-anchor="middle" dy=".35em">T</text>
-  <circle cx="144" cy="48" r="19.200000000000003" fill="#10b981"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <!-- Orange background with rounded corners -->
+  <rect width="192" height="192" fill="#ff6b35" rx="38"/>
+  
+  <!-- White timer ring background (faded) -->
+  <circle cx="96" cy="96" r="52" fill="none" stroke="#ffffff" stroke-width="9" opacity="0.3"/>
+  
+  <!-- White progress arc (3/4 circle) -->
+  <circle cx="96" cy="96" r="52" fill="none" stroke="#ffffff" stroke-width="9"
+          stroke-dasharray="245 327" stroke-dashoffset="0"
+          transform="rotate(-90 96 96)" stroke-linecap="round"/>
+  
+  <!-- White center dot -->
+  <circle cx="96" cy="96" r="7.5" fill="#ffffff"/>
+  
+  <!-- Timer text -->
+  <text x="96" y="150" font-family="Arial, sans-serif" font-size="25"
+        font-weight="bold" fill="#ffffff" text-anchor="middle">TIMER</text>
 </svg>

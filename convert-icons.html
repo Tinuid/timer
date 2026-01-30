@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Icon Converter</title>
+</head>
+<body>
+    <h1>Icon Generator</h1>
+    <p>Konvertierung läuft...</p>
+    <div id="status"></div>
+    
+    <script>
+        async function convertSVGtoPNG(svgPath, size, filename) {
+            const response = await fetch(svgPath);
+            const svgText = await response.text();
+            
+            const img = new Image();
+            const blob = new Blob([svgText], {type: 'image/svg+xml'});
+            const url = URL.createObjectURL(blob);
+            
+            return new Promise((resolve) => {
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, size, size);
+                    
+                    canvas.toBlob((blob) => {
+                        const link = document.createElement('a');
+                        link.download = filename;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        resolve();
+                    }, 'image/png');
+                };
+                img.src = url;
+            });
+        }
+        
+        async function generateIcons() {
+            const status = document.getElementById('status');
+            
+            status.innerHTML = 'Generiere icon-192.png...';
+            await convertSVGtoPNG('assets/icons/icon-192.svg', 192, 'icon-192.png');
+            await new Promise(r => setTimeout(r, 500));
+            
+            status.innerHTML = 'Generiere icon-512.png...';
+            await convertSVGtoPNG('assets/icons/icon-512.svg', 512, 'icon-512.png');
+            await new Promise(r => setTimeout(r, 500));
+            
+            status.innerHTML = '<strong>Fertig!</strong><br>Beide PNG-Dateien wurden heruntergeladen.<br>Verschiebe sie in den Ordner: assets/icons/';
+        }
+        
+        window.onload = () => {
+            setTimeout(generateIcons, 500);
+        };
+    </script>
+</body>
+</html>
