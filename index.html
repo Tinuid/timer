@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Timer für Dehnübungen mit Wiederholungen">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <title>Dehnübungen Timer</title>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --accent: #10b981;
+            --accent-dark: #059669;
+            --bg: #f8fafc;
+            --bg-card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 1rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 3rem;
+
+            --radius: 12px;
+            --radius-lg: 16px;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            touch-action: manipulation;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-sm);
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        main {
+            flex: 1;
+            padding: var(--spacing-md) var(--spacing-sm);
+            max-width: 480px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .settings-header h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .toggle-icon {
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .settings-content {
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            overflow: hidden;
+        }
+
+        .settings-content.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+        }
+
+        .setting-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .setting-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-light);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            background: var(--bg);
+            color: var(--text);
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+        }
+
+        .volume-display {
+            text-align: right;
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-top: var(--spacing-xs);
+        }
+
+        .timer-display {
+            text-align: center;
+            padding: var(--spacing-lg) 0;
+        }
+
+        .countdown {
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .countdown.paused {
+            color: var(--warning);
+        }
+
+        .countdown.in-break {
+            color: var(--accent);
+        }
+
+        .status-text {
+            font-size: 1rem;
+            color: var(--text-light);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .status-text.in-break {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .repetition-counter {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .progress-section {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .progress-label {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-bottom: var(--spacing-xs);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-fill.in-break {
+            background: var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-lg);
+        }
+
+        button {
+            padding: 1rem;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 56px;
+            touch-action: manipulation;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary.running {
+            background: var(--danger);
+        }
+
+        .btn-primary.running:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: var(--bg);
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary:disabled:hover {
+            background: var(--bg);
+            transform: none;
+        }
+
+        .secondary-controls {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .secondary-controls button {
+            flex: 1;
+        }
+
+        footer {
+            text-align: center;
+            padding: var(--spacing-md);
+            color: var(--text-light);
+            font-size: 0.875rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .countdown.pulse {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @media (max-width: 360px) {
+            .countdown {
+                font-size: 4rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Dehnübungen Timer</h1>
+    </header>
+
+    <main>
+        <div class="card">
+            <div class="settings-header" id="settingsToggle">
+                <h2>Einstellungen</h2>
+                <span class="toggle-icon" id="toggleIcon">▼</span>
+            </div>
+            <div class="settings-content" id="settingsContent">
+                <div class="setting-group">
+                    <label for="timerDuration">Timer-Dauer (Sekunden)</label>
+                    <input type="number" id="timerDuration" min="10" max="600" step="5" value="60">
+                </div>
+
+                <div class="setting-group">
+                    <label for="pauseDuration">Pause zwischen Übungen (Sekunden)</label>
+                    <input type="number" id="pauseDuration" min="0" max="60" step="5" value="5">
+                </div>
+
+                <div class="setting-group">
+                    <label for="repetitions">Anzahl Wiederholungen</label>
+                    <input type="number" id="repetitions" min="1" max="50" value="10">
+                </div>
+
+                <div class="setting-group">
+                    <label for="soundSelect">Ton-Auswahl</label>
+                    <select id="soundSelect">
+                        <option value="beep">Beep</option>
+                        <option value="chime">Chime</option>
+                        <option value="bell">Bell</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label for="volume">Lautstärke</label>
+                    <input type="range" id="volume" min="0" max="100" value="80">
+                    <div class="volume-display"><span id="volumeValue">80</span>%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="timer-display">
+                <div class="countdown" id="countdown">01:00</div>
+                <div class="status-text" id="statusText">Bereit zum Start</div>
+                <div class="repetition-counter" id="repetitionCounter">0 / 10</div>
+
+                <div class="progress-section">
+                    <div class="progress-label">
+                        <span>Aktueller Timer</span>
+                        <span id="currentProgress">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="currentProgressBar"></div>
+                    </div>
+                </div>
+
+                <div class="progress-section">
+                    <div class="progress-label">
+                        <span>Gesamtfortschritt</span>
+                        <span id="overallProgress">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="overallProgressBar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-primary" id="startStopBtn">Start</button>
+                <div class="secondary-controls">
+                    <button class="btn-secondary" id="pauseResumeBtn" disabled>Pause</button>
+                    <button class="btn-secondary" id="resetBtn">Reset</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        Progressive Web App - Funktioniert offline
+    </footer>
+
+    <script>
+        class TimerManager {
+            constructor() {
+                this.currentTime = 0;
+                this.totalTime = 60;
+                this.pauseTime = 5;
+                this.repetitions = 10;
+                this.currentRepetition = 0;
+                this.isRunning = false;
+                this.isPaused = false;
+                this.isInBreak = false;
+                this.intervalId = null;
+                this.selectedSound = 'beep';
+                this.volume = 0.8;
+
+                this.audioContext = null;
+                this.sounds = {};
+
+                this.initAudio();
+                this.loadSettings();
+                this.bindEvents();
+                this.updateDisplay();
+            }
+
+            initAudio() {
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.warn('Web Audio API not supported');
+                }
+            }
+
+            async playSound() {
+                if (this.audioContext) {
+                    try {
+                        if (this.audioContext.state === 'suspended') {
+                            await this.audioContext.resume();
+                        }
+
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+
+                        oscillator.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+
+                        const frequencies = {
+                            'beep': 800,
+                            'chime': 1200,
+                            'bell': 600
+                        };
+
+                        oscillator.frequency.value = frequencies[this.selectedSound] || 800;
+                        oscillator.type = this.selectedSound === 'bell' ? 'sine' : 'square';
+
+                        gainNode.gain.setValueAtTime(this.volume, this.audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.5);
+                    } catch (e) {
+                        console.warn('Could not play sound:', e);
+                    }
+                }
+            }
+
+            vibrate() {
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([200, 100, 200]);
+                }
+            }
+
+            loadSettings() {
+                try {
+                    const settings = JSON.parse(localStorage.getItem('timerSettings') || '{}');
+
+                    this.totalTime = settings.timerDuration || 60;
+                    this.pauseTime = settings.pauseDuration || 5;
+                    this.repetitions = settings.repetitions || 10;
+                    this.selectedSound = settings.selectedSound || 'beep';
+                    this.volume = settings.volume !== undefined ? settings.volume : 0.8;
+
+                    document.getElementById('timerDuration').value = this.totalTime;
+                    document.getElementById('pauseDuration').value = this.pauseTime;
+                    document.getElementById('repetitions').value = this.repetitions;
+                    document.getElementById('soundSelect').value = this.selectedSound;
+                    document.getElementById('volume').value = this.volume * 100;
+                    document.getElementById('volumeValue').textContent = Math.round(this.volume * 100);
+
+                    this.currentTime = this.totalTime;
+                } catch (e) {
+                    console.warn('Could not load settings:', e);
+                }
+            }
+
+            saveSettings() {
+                const settings = {
+                    timerDuration: this.totalTime,
+                    pauseDuration: this.pauseTime,
+                    repetitions: this.repetitions,
+                    selectedSound: this.selectedSound,
+                    volume: this.volume
+                };
+
+                try {
+                    localStorage.setItem('timerSettings', JSON.stringify(settings));
+                } catch (e) {
+                    console.warn('Could not save settings:', e);
+                }
+            }
+
+            bindEvents() {
+                document.getElementById('startStopBtn').addEventListener('click', () => {
+                    if (this.isRunning) {
+                        this.stop();
+                    } else {
+                        this.start();
+                    }
+                });
+
+                document.getElementById('pauseResumeBtn').addEventListener('click', () => {
+                    if (this.isPaused) {
+                        this.resume();
+                    } else {
+                        this.pause();
+                    }
+                });
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.reset();
+                });
+
+                document.getElementById('timerDuration').addEventListener('change', (e) => {
+                    this.totalTime = parseInt(e.target.value);
+                    if (!this.isRunning) {
+                        this.currentTime = this.totalTime;
+                        this.updateDisplay();
+                    }
+                    this.saveSettings();
+                });
+
+                document.getElementById('pauseDuration').addEventListener('change', (e) => {
+                    this.pauseTime = parseInt(e.target.value);
+                    this.saveSettings();
+                });
+
+                document.getElementById('repetitions').addEventListener('change', (e) => {
+                    this.repetitions = parseInt(e.target.value);
+                    this.updateDisplay();
+                    this.saveSettings();
+                });
+
+                document.getElementById('soundSelect').addEventListener('change', (e) => {
+                    this.selectedSound = e.target.value;
+                    this.saveSettings();
+                });
+
+                document.getElementById('volume').addEventListener('input', (e) => {
+                    this.volume = e.target.value / 100;
+                    document.getElementById('volumeValue').textContent = e.target.value;
+                    this.saveSettings();
+                });
+
+                document.getElementById('settingsToggle').addEventListener('click', () => {
+                    this.toggleSettings();
+                });
+
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && this.isRunning && !this.isPaused) {
+                        // Optional: Pause when app goes to background
+                    }
+                });
+            }
+
+            toggleSettings() {
+                const content = document.getElementById('settingsContent');
+                const icon = document.getElementById('toggleIcon');
+
+                if (content.classList.contains('collapsed')) {
+                    content.classList.remove('collapsed');
+                    icon.classList.remove('collapsed');
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                } else {
+                    content.classList.add('collapsed');
+                    icon.classList.add('collapsed');
+                }
+            }
+
+            start() {
+                if (this.currentRepetition === 0) {
+                    this.currentRepetition = 1;
+                    this.currentTime = this.totalTime;
+                }
+
+                this.isRunning = true;
+                this.isPaused = false;
+
+                if (!document.getElementById('settingsContent').classList.contains('collapsed')) {
+                    this.toggleSettings();
+                }
+
+                this.intervalId = setInterval(() => this.tick(), 1000);
+                this.updateDisplay();
+            }
+
+            stop() {
+                this.isRunning = false;
+                this.isPaused = false;
+                clearInterval(this.intervalId);
+                this.currentRepetition = 0;
+                this.currentTime = this.totalTime;
+                this.isInBreak = false;
+                this.updateDisplay();
+            }
+
+            pause() {
+                this.isPaused = true;
+                clearInterval(this.intervalId);
+                this.updateDisplay();
+            }
+
+            resume() {
+                this.isPaused = false;
+                this.intervalId = setInterval(() => this.tick(), 1000);
+                this.updateDisplay();
+            }
+
+            reset() {
+                this.stop();
+                if (document.getElementById('settingsContent').classList.contains('collapsed')) {
+                    this.toggleSettings();
+                }
+            }
+
+            tick() {
+                this.currentTime--;
+
+                if (this.currentTime <= 0) {
+                    this.playSound();
+                    this.vibrate();
+
+                    if (this.isInBreak) {
+                        this.isInBreak = false;
+                        this.currentRepetition++;
+
+                        if (this.currentRepetition > this.repetitions) {
+                            this.complete();
+                            return;
+                        }
+
+                        this.currentTime = this.totalTime;
+                    } else {
+                        if (this.currentRepetition < this.repetitions && this.pauseTime > 0) {
+                            this.isInBreak = true;
+                            this.currentTime = this.pauseTime;
+                        } else {
+                            this.currentRepetition++;
+
+                            if (this.currentRepetition > this.repetitions) {
+                                this.complete();
+                                return;
+                            }
+
+                            this.currentTime = this.totalTime;
+                        }
+                    }
+                }
+
+                this.updateDisplay();
+            }
+
+            complete() {
+                this.playSound();
+                this.vibrate();
+                this.stop();
+
+                const statusText = document.getElementById('statusText');
+                statusText.textContent = 'Fertig! Gut gemacht!';
+                statusText.style.color = 'var(--accent)';
+
+                setTimeout(() => {
+                    statusText.textContent = 'Bereit zum Start';
+                    statusText.style.color = '';
+                }, 3000);
+            }
+
+            updateDisplay() {
+                const startStopBtn = document.getElementById('startStopBtn');
+                const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+                const countdown = document.getElementById('countdown');
+                const statusText = document.getElementById('statusText');
+                const repetitionCounter = document.getElementById('repetitionCounter');
+
+                const minutes = Math.floor(this.currentTime / 60);
+                const seconds = this.currentTime % 60;
+                countdown.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                countdown.classList.remove('paused', 'in-break', 'pulse');
+                statusText.classList.remove('in-break');
+
+                if (this.isRunning) {
+                    startStopBtn.textContent = 'Stop';
+                    startStopBtn.classList.add('running');
+                    pauseResumeBtn.disabled = false;
+
+                    if (this.isPaused) {
+                        countdown.classList.add('paused');
+                        statusText.textContent = 'Pausiert';
+                        pauseResumeBtn.textContent = 'Fortsetzen';
+                    } else if (this.isInBreak) {
+                        countdown.classList.add('in-break');
+                        statusText.textContent = 'Pause';
+                        statusText.classList.add('in-break');
+                        pauseResumeBtn.textContent = 'Pause';
+
+                        const progressBar = document.getElementById('currentProgressBar');
+                        progressBar.classList.add('in-break');
+                    } else {
+                        statusText.textContent = `Übung ${this.currentRepetition}`;
+                        pauseResumeBtn.textContent = 'Pause';
+
+                        const progressBar = document.getElementById('currentProgressBar');
+                        progressBar.classList.remove('in-break');
+
+                        if (this.currentTime <= 3 && this.currentTime > 0) {
+                            countdown.classList.add('pulse');
+                        }
+                    }
+                } else {
+                    startStopBtn.textContent = 'Start';
+                    startStopBtn.classList.remove('running');
+                    pauseResumeBtn.disabled = true;
+                    pauseResumeBtn.textContent = 'Pause';
+
+                    if (this.currentRepetition === 0) {
+                        statusText.textContent = 'Bereit zum Start';
+                    }
+                }
+
+                repetitionCounter.textContent = `${this.currentRepetition} / ${this.repetitions}`;
+
+                const currentMaxTime = this.isInBreak ? this.pauseTime : this.totalTime;
+                const currentProgress = this.isRunning ?
+                    Math.round(((currentMaxTime - this.currentTime) / currentMaxTime) * 100) : 0;
+                document.getElementById('currentProgress').textContent = `${currentProgress}%`;
+                document.getElementById('currentProgressBar').style.width = `${currentProgress}%`;
+
+                const totalReps = this.repetitions;
+                const completedReps = this.currentRepetition > 0 ? this.currentRepetition - 1 : 0;
+                const currentRepProgress = this.isRunning && !this.isInBreak ?
+                    ((currentMaxTime - this.currentTime) / currentMaxTime) : 0;
+                const overallProgress = totalReps > 0 ?
+                    Math.round(((completedReps + currentRepProgress) / totalReps) * 100) : 0;
+                document.getElementById('overallProgress').textContent = `${overallProgress}%`;
+                document.getElementById('overallProgressBar').style.width = `${overallProgress}%`;
+            }
+        }
+
+        let timerManager;
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            timerManager = new TimerManager();
+
+            const settingsContent = document.getElementById('settingsContent');
+            settingsContent.style.maxHeight = settingsContent.scrollHeight + 'px';
+        });
+    </script>
+</body>
+</html>
