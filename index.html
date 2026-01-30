@@ -782,8 +782,8 @@
             tick() {
                 this.currentTime--;
 
-                // Countdown-Beeps in den letzten 3 Sekunden der Pause
-                if (this.isInBreak && this.currentTime > 0 && this.currentTime <= 3) {
+                // Countdown-Beeps in den letzten 3 Sekunden (Übung und Pause)
+                if (this.currentTime > 0 && this.currentTime <= 3) {
                     this.playSound('countdown');
                 }
 
