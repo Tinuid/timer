@@ -243,6 +243,126 @@
             margin-top: var(--spacing-xs);
         }
 
+        .presets-section {
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid var(--border);
+        }
+
+        .presets-section h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .preset-save-form {
+            display: flex;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .preset-save-form input[type="text"] {
+            flex: 1;
+            padding: 0.6rem 0.75rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            background: #1a1a1a;
+            color: var(--text);
+            transition: border-color 0.2s ease;
+        }
+
+        .preset-save-form input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .preset-save-form input[type="text"]::placeholder {
+            color: var(--text-light);
+        }
+
+        .btn-save-preset {
+            padding: 0.6rem 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            min-height: auto;
+        }
+
+        .btn-save-preset:hover {
+            background: var(--primary-dark);
+        }
+
+        .presets-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .preset-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: var(--bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            transition: border-color 0.2s ease;
+        }
+
+        .preset-item:hover {
+            border-color: var(--primary);
+        }
+
+        .preset-info {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .preset-name {
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .preset-details {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .btn-delete-preset {
+            padding: 0.4rem 0.6rem;
+            background: transparent;
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: auto;
+        }
+
+        .btn-delete-preset:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: white;
+        }
+
+        .no-presets {
+            color: var(--text-light);
+            font-size: 0.875rem;
+            text-align: center;
+            padding: var(--spacing-sm);
+        }
+
         .timer-display {
             text-align: center;
             width: 100%;
@@ -504,6 +624,17 @@
                     <div class="volume-display"><span id="volumeValue">80</span>%</div>
                 </div>
             </div>
+
+            <div class="presets-section">
+                <h3>Voreinstellungen</h3>
+                <div class="preset-save-form">
+                    <input type="text" id="presetName" placeholder="Name der Voreinstellung">
+                    <button class="btn-save-preset" id="savePresetBtn">Speichern</button>
+                </div>
+                <div class="presets-list" id="presetsList">
+                    <div class="no-presets">Keine Voreinstellungen gespeichert</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -524,9 +655,11 @@
 
                 this.audioContext = null;
                 this.sounds = {};
+                this.presets = [];
 
                 this.initAudio();
                 this.loadSettings();
+                this.loadPresets();
                 this.bindEvents();
                 this.updateDisplay();
             }
@@ -652,6 +785,97 @@
                 }
             }
 
+            loadPresets() {
+                try {
+                    this.presets = JSON.parse(localStorage.getItem('timerPresets') || '[]');
+                    this.renderPresets();
+                } catch (e) {
+                    console.warn('Could not load presets:', e);
+                    this.presets = [];
+                }
+            }
+
+            savePresetsToStorage() {
+                try {
+                    localStorage.setItem('timerPresets', JSON.stringify(this.presets));
+                } catch (e) {
+                    console.warn('Could not save presets:', e);
+                }
+            }
+
+            savePreset() {
+                const nameInput = document.getElementById('presetName');
+                const name = nameInput.value.trim();
+
+                if (!name) {
+                    return;
+                }
+
+                const preset = {
+                    id: Date.now(),
+                    name: name,
+                    timerDuration: this.totalTime,
+                    pauseDuration: this.pauseTime,
+                    repetitions: this.repetitions
+                };
+
+                this.presets.push(preset);
+                this.savePresetsToStorage();
+                this.renderPresets();
+                nameInput.value = '';
+            }
+
+            loadPreset(presetId) {
+                const preset = this.presets.find(p => p.id === presetId);
+                if (!preset) return;
+
+                this.totalTime = preset.timerDuration;
+                this.pauseTime = preset.pauseDuration;
+                this.repetitions = preset.repetitions;
+
+                document.getElementById('timerDuration').value = this.totalTime;
+                document.getElementById('pauseDuration').value = this.pauseTime;
+                document.getElementById('repetitions').value = this.repetitions;
+
+                if (!this.isRunning) {
+                    this.currentTime = this.totalTime;
+                }
+
+                this.saveSettings();
+                this.updateDisplay();
+            }
+
+            deletePreset(presetId) {
+                this.presets = this.presets.filter(p => p.id !== presetId);
+                this.savePresetsToStorage();
+                this.renderPresets();
+            }
+
+            renderPresets() {
+                const listContainer = document.getElementById('presetsList');
+
+                if (this.presets.length === 0) {
+                    listContainer.innerHTML = '<div class="no-presets">Keine Voreinstellungen gespeichert</div>';
+                    return;
+                }
+
+                listContainer.innerHTML = this.presets.map(preset => `
+                    <div class="preset-item" data-preset-id="${preset.id}">
+                        <div class="preset-info" data-action="load">
+                            <div class="preset-name">${this.escapeHtml(preset.name)}</div>
+                            <div class="preset-details">${preset.timerDuration}s Übung, ${preset.pauseDuration}s Pause, ${preset.repetitions}x</div>
+                        </div>
+                        <button class="btn-delete-preset" data-action="delete">✕</button>
+                    </div>
+                `).join('');
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
             bindEvents() {
                 document.getElementById('startStopBtn').addEventListener('click', () => {
                     if (this.isRunning) {
@@ -723,6 +947,31 @@
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape' && document.getElementById('settingsModal').classList.contains('active')) {
                         this.closeSettings();
+                    }
+                });
+
+                // Preset events
+                document.getElementById('savePresetBtn').addEventListener('click', () => {
+                    this.savePreset();
+                });
+
+                document.getElementById('presetName').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.savePreset();
+                    }
+                });
+
+                document.getElementById('presetsList').addEventListener('click', (e) => {
+                    const presetItem = e.target.closest('.preset-item');
+                    if (!presetItem) return;
+
+                    const presetId = parseInt(presetItem.dataset.presetId);
+                    const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+
+                    if (action === 'delete') {
+                        this.deletePreset(presetId);
+                    } else if (action === 'load') {
+                        this.loadPreset(presetId);
                     }
                 });
 
