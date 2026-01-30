@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#ff6b35">
     <meta name="description" content="Timer für Dehnübungen mit Wiederholungen">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,15 +12,16 @@
 
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --accent: #10b981;
-            --accent-dark: #059669;
-            --bg: #f8fafc;
-            --bg-card: #ffffff;
-            --text: #1e293b;
-            --text-light: #64748b;
-            --border: #e2e8f0;
+            --primary: #ff6b35;
+            --primary-dark: #e55a25;
+            --accent: #ffa07a;
+            --accent-dark: #ff8c5a;
+            --bg: #0a0a0a;
+            --bg-card: #1a1a1a;
+            --text: #ffffff;
+            --text-light: #a0a0a0;
+            --border: #2a2a2a;
+            --ring-bg: #2a2a2a;
             --danger: #ef4444;
             --warning: #f59e0b;
 
@@ -32,8 +33,8 @@
 
             --radius: 12px;
             --radius-lg: 16px;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.7);
         }
 
         * {
@@ -52,68 +53,112 @@
             flex-direction: column;
             -webkit-font-smoothing: antialiased;
             touch-action: manipulation;
-        }
-
-        header {
-            background: var(--primary);
-            color: white;
-            padding: var(--spacing-md) var(--spacing-sm);
-            text-align: center;
-            box-shadow: var(--shadow);
-        }
-
-        header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
+            margin: 0;
+            padding: 0;
         }
 
         main {
             flex: 1;
             padding: var(--spacing-md) var(--spacing-sm);
-            max-width: 480px;
             width: 100%;
             margin: 0 auto;
-        }
-
-        .card {
-            background: var(--bg-card);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-md);
-            box-shadow: var(--shadow);
-            margin-bottom: var(--spacing-md);
-        }
-
-        .settings-header {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
+        }
+
+        .settings-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: none;
+            box-shadow: var(--shadow);
+            z-index: 100;
+            font-size: 24px;
+            color: white;
             cursor: pointer;
-            user-select: none;
-            margin-bottom: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
         }
 
-        .settings-header h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
+        .settings-fab:hover {
+            background: var(--primary-dark);
+            transform: scale(1.05);
         }
 
-        .toggle-icon {
-            font-size: 1.25rem;
-            transition: transform 0.3s ease;
+        .settings-fab:active {
+            transform: scale(0.95);
         }
 
-        .toggle-icon.collapsed {
-            transform: rotate(-90deg);
+        .settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-md);
+        }
+
+        .settings-modal.active {
+            display: flex;
         }
 
         .settings-content {
-            transition: max-height 0.3s ease, opacity 0.3s ease;
-            overflow: hidden;
+            background: var(--bg-card);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
         }
 
-        .settings-content.collapsed {
-            max-height: 0 !important;
-            opacity: 0;
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            min-height: auto;
+        }
+
+        .close-btn:hover {
+            background: var(--border);
+            color: var(--text);
         }
 
         .setting-group {
@@ -139,7 +184,7 @@
             border: 2px solid var(--border);
             border-radius: var(--radius);
             font-size: 1rem;
-            background: var(--bg);
+            background: #1a1a1a;
             color: var(--text);
             transition: border-color 0.2s ease;
         }
@@ -148,6 +193,11 @@
         select:focus {
             outline: none;
             border-color: var(--primary);
+        }
+
+        option {
+            background: #1a1a1a;
+            color: var(--text);
         }
 
         input[type="range"] {
@@ -192,16 +242,66 @@
 
         .timer-display {
             text-align: center;
-            padding: var(--spacing-lg) 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .circular-timer {
+            position: relative;
+            width: min(90vw, 90vh);
+            height: min(90vw, 90vh);
+            max-width: 500px;
+            max-height: 500px;
+        }
+
+        .timer-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .circular-timer svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: var(--ring-bg);
+            stroke-width: 12;
+        }
+
+        .circle-progress {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 12;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
+        }
+
+        .circle-progress.in-break {
+            stroke: var(--accent);
+        }
+
+        .circle-progress.paused {
+            stroke: var(--warning);
         }
 
         .countdown {
-            font-size: 5rem;
+            font-size: clamp(3rem, 12vw, 6rem);
             font-weight: 700;
-            color: var(--primary);
+            color: var(--text);
             font-variant-numeric: tabular-nums;
             line-height: 1;
-            margin-bottom: var(--spacing-sm);
         }
 
         .countdown.paused {
@@ -212,60 +312,28 @@
             color: var(--accent);
         }
 
-        .status-text {
-            font-size: 1rem;
+        .timer-status {
+            font-size: 1.2rem;
+            margin-top: 0.5rem;
             color: var(--text-light);
-            margin-bottom: var(--spacing-md);
         }
 
-        .status-text.in-break {
+        .timer-status.in-break {
             color: var(--accent);
-            font-weight: 500;
         }
 
         .repetition-counter {
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-size: 1.5rem;
             color: var(--text);
-            margin-bottom: var(--spacing-md);
-        }
-
-        .progress-section {
-            margin-bottom: var(--spacing-md);
-        }
-
-        .progress-label {
-            font-size: 0.875rem;
-            color: var(--text-light);
-            margin-bottom: var(--spacing-xs);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: var(--border);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--primary);
-            transition: width 0.3s ease;
-            border-radius: 4px;
-        }
-
-        .progress-fill.in-break {
-            background: var(--accent);
+            text-align: center;
         }
 
         .controls {
             display: flex;
             flex-direction: column;
             gap: var(--spacing-sm);
-            margin-top: var(--spacing-lg);
+            width: 100%;
+            max-width: 400px;
         }
 
         button {
@@ -289,7 +357,7 @@
         .btn-primary:hover {
             background: var(--primary-dark);
             transform: translateY(-2px);
-            box-shadow: 0 12px 20px rgba(37, 99, 235, 0.3);
+            box-shadow: 0 12px 20px rgba(255, 107, 53, 0.4);
         }
 
         .btn-primary:active {
@@ -305,13 +373,13 @@
         }
 
         .btn-secondary {
-            background: var(--bg);
+            background: #2a2a2a;
             color: var(--text);
-            border: 2px solid var(--border);
+            border: 1px solid #3a3a3a;
         }
 
         .btn-secondary:hover {
-            background: #e2e8f0;
+            background: #333333;
         }
 
         .btn-secondary:disabled {
@@ -320,7 +388,7 @@
         }
 
         .btn-secondary:disabled:hover {
-            background: var(--bg);
+            background: #2a2a2a;
             transform: none;
         }
 
@@ -331,13 +399,6 @@
 
         .secondary-controls button {
             flex: 1;
-        }
-
-        footer {
-            text-align: center;
-            padding: var(--spacing-md);
-            color: var(--text-light);
-            font-size: 0.875rem;
         }
 
         .hidden {
@@ -358,8 +419,12 @@
         }
 
         @media (max-width: 360px) {
-            .countdown {
-                font-size: 4rem;
+            .settings-fab {
+                bottom: 15px;
+                right: 15px;
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
             }
         }
 
@@ -372,17 +437,40 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1>Dehnübungen Timer</h1>
-    </header>
-
     <main>
-        <div class="card">
-            <div class="settings-header" id="settingsToggle">
-                <h2>Einstellungen</h2>
-                <span class="toggle-icon" id="toggleIcon">▼</span>
+        <div class="repetition-counter" id="repetitionCounter">Übung 0 / 10</div>
+
+        <div class="timer-display">
+            <div class="circular-timer">
+                <svg viewBox="0 0 300 300">
+                    <circle class="circle-bg" cx="150" cy="150" r="140"></circle>
+                    <circle class="circle-progress" id="circleProgress" cx="150" cy="150" r="140"></circle>
+                </svg>
+                <div class="timer-center">
+                    <div class="countdown" id="countdown">01:00</div>
+                    <div class="timer-status" id="timerStatus"></div>
+                </div>
             </div>
-            <div class="settings-content" id="settingsContent">
+        </div>
+
+        <div class="controls">
+            <button class="btn-primary" id="startStopBtn">Start</button>
+            <div class="secondary-controls">
+                <button class="btn-secondary" id="pauseResumeBtn" disabled>Pause</button>
+                <button class="btn-secondary" id="resetBtn">Reset</button>
+            </div>
+        </div>
+    </main>
+
+    <button class="settings-fab" id="settingsFab">⚙</button>
+
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <div class="modal-header">
+                <h2>Einstellungen</h2>
+                <button class="close-btn" id="closeSettings">✕</button>
+            </div>
+            <div class="settings-inputs">
                 <div class="setting-group">
                     <label for="timerDuration">Timer-Dauer (Sekunden)</label>
                     <input type="number" id="timerDuration" min="10" max="600" step="5" value="60">
@@ -414,47 +502,7 @@
                 </div>
             </div>
         </div>
-
-        <div class="card">
-            <div class="timer-display">
-                <div class="countdown" id="countdown">01:00</div>
-                <div class="status-text" id="statusText">Bereit zum Start</div>
-                <div class="repetition-counter" id="repetitionCounter">0 / 10</div>
-
-                <div class="progress-section">
-                    <div class="progress-label">
-                        <span>Aktueller Timer</span>
-                        <span id="currentProgress">0%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="currentProgressBar"></div>
-                    </div>
-                </div>
-
-                <div class="progress-section">
-                    <div class="progress-label">
-                        <span>Gesamtfortschritt</span>
-                        <span id="overallProgress">0%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="overallProgressBar"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="controls">
-                <button class="btn-primary" id="startStopBtn">Start</button>
-                <div class="secondary-controls">
-                    <button class="btn-secondary" id="pauseResumeBtn" disabled>Pause</button>
-                    <button class="btn-secondary" id="resetBtn">Reset</button>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <footer>
-        Progressive Web App - Funktioniert offline
-    </footer>
+    </div>
 
     <script>
         class TimerManager {
@@ -488,7 +536,7 @@
                 }
             }
 
-            async playSound() {
+            async playSound(soundType = 'main') {
                 if (this.audioContext) {
                     try {
                         if (this.audioContext.state === 'suspended') {
@@ -501,20 +549,55 @@
                         oscillator.connect(gainNode);
                         gainNode.connect(this.audioContext.destination);
 
-                        const frequencies = {
-                            'beep': 800,
-                            'chime': 1200,
-                            'bell': 600
-                        };
+                        let frequency, duration, volume, type;
 
-                        oscillator.frequency.value = frequencies[this.selectedSound] || 800;
-                        oscillator.type = this.selectedSound === 'bell' ? 'sine' : 'square';
+                        if (soundType === 'breakStart') {
+                            // Klingeln für Pausenstart - mehrere Töne hintereinander
+                            const ring = async () => {
+                                for (let i = 0; i < 3; i++) {
+                                    const osc = this.audioContext.createOscillator();
+                                    const gain = this.audioContext.createGain();
+                                    osc.connect(gain);
+                                    gain.connect(this.audioContext.destination);
 
-                        gainNode.gain.setValueAtTime(this.volume, this.audioContext.currentTime);
-                        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                                    osc.frequency.value = 1000;
+                                    osc.type = 'sine';
+                                    gain.gain.setValueAtTime(this.volume * 0.7, this.audioContext.currentTime);
+                                    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+
+                                    osc.start(this.audioContext.currentTime + i * 0.25);
+                                    osc.stop(this.audioContext.currentTime + i * 0.25 + 0.2);
+                                }
+                            };
+                            await ring();
+                            return;
+                        } else if (soundType === 'countdown') {
+                            // Leiser Beep für Countdown (letzte 3 Sekunden der Pause)
+                            frequency = 600;
+                            duration = 0.1;
+                            volume = this.volume * 0.3;
+                            type = 'sine';
+                        } else {
+                            // Normaler Beep am Ende der Pause/Übung
+                            const frequencies = {
+                                'beep': 800,
+                                'chime': 1200,
+                                'bell': 600
+                            };
+                            frequency = frequencies[this.selectedSound] || 800;
+                            duration = 0.5;
+                            volume = this.volume;
+                            type = this.selectedSound === 'bell' ? 'sine' : 'square';
+                        }
+
+                        oscillator.frequency.value = frequency;
+                        oscillator.type = type;
+
+                        gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
 
                         oscillator.start(this.audioContext.currentTime);
-                        oscillator.stop(this.audioContext.currentTime + 0.5);
+                        oscillator.stop(this.audioContext.currentTime + duration);
                     } catch (e) {
                         console.warn('Could not play sound:', e);
                     }
@@ -618,8 +701,26 @@
                     this.saveSettings();
                 });
 
-                document.getElementById('settingsToggle').addEventListener('click', () => {
-                    this.toggleSettings();
+                // Settings modal events
+                document.getElementById('settingsFab').addEventListener('click', () => {
+                    this.openSettings();
+                });
+
+                document.getElementById('closeSettings').addEventListener('click', () => {
+                    this.closeSettings();
+                });
+
+                document.getElementById('settingsModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'settingsModal') {
+                        this.closeSettings();
+                    }
+                });
+
+                // Close modal with Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && document.getElementById('settingsModal').classList.contains('active')) {
+                        this.closeSettings();
+                    }
                 });
 
                 document.addEventListener('visibilitychange', () => {
@@ -629,18 +730,12 @@
                 });
             }
 
-            toggleSettings() {
-                const content = document.getElementById('settingsContent');
-                const icon = document.getElementById('toggleIcon');
+            openSettings() {
+                document.getElementById('settingsModal').classList.add('active');
+            }
 
-                if (content.classList.contains('collapsed')) {
-                    content.classList.remove('collapsed');
-                    icon.classList.remove('collapsed');
-                    content.style.maxHeight = content.scrollHeight + 'px';
-                } else {
-                    content.classList.add('collapsed');
-                    icon.classList.add('collapsed');
-                }
+            closeSettings() {
+                document.getElementById('settingsModal').classList.remove('active');
             }
 
             start() {
@@ -651,10 +746,6 @@
 
                 this.isRunning = true;
                 this.isPaused = false;
-
-                if (!document.getElementById('settingsContent').classList.contains('collapsed')) {
-                    this.toggleSettings();
-                }
 
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
@@ -684,19 +775,22 @@
 
             reset() {
                 this.stop();
-                if (document.getElementById('settingsContent').classList.contains('collapsed')) {
-                    this.toggleSettings();
-                }
             }
 
             tick() {
                 this.currentTime--;
 
-                if (this.currentTime <= 0) {
-                    this.playSound();
-                    this.vibrate();
+                // Countdown-Beeps in den letzten 3 Sekunden der Pause
+                if (this.isInBreak && this.currentTime > 0 && this.currentTime <= 3) {
+                    this.playSound('countdown');
+                }
 
+                if (this.currentTime <= 0) {
                     if (this.isInBreak) {
+                        // Ende der Pause - normaler Beep
+                        this.playSound('main');
+                        this.vibrate();
+
                         this.isInBreak = false;
                         this.currentRepetition++;
 
@@ -707,10 +801,17 @@
 
                         this.currentTime = this.totalTime;
                     } else {
+                        // Ende der Übung
                         if (this.currentRepetition < this.repetitions && this.pauseTime > 0) {
+                            // Start der Pause - Klingeln
+                            this.playSound('breakStart');
+                            this.vibrate();
                             this.isInBreak = true;
                             this.currentTime = this.pauseTime;
                         } else {
+                            // Keine Pause - direkt zur nächsten Übung
+                            this.playSound('main');
+                            this.vibrate();
                             this.currentRepetition++;
 
                             if (this.currentRepetition > this.repetitions) {
@@ -727,17 +828,17 @@
             }
 
             complete() {
-                this.playSound();
+                this.playSound('main');
                 this.vibrate();
                 this.stop();
 
-                const statusText = document.getElementById('statusText');
-                statusText.textContent = 'Fertig! Gut gemacht!';
-                statusText.style.color = 'var(--accent)';
+                const timerStatus = document.getElementById('timerStatus');
+                timerStatus.textContent = 'Fertig! Gut gemacht!';
+                timerStatus.style.color = 'var(--accent)';
 
                 setTimeout(() => {
-                    statusText.textContent = 'Bereit zum Start';
-                    statusText.style.color = '';
+                    timerStatus.textContent = '';
+                    timerStatus.style.color = '';
                 }, 3000);
             }
 
@@ -745,7 +846,7 @@
                 const startStopBtn = document.getElementById('startStopBtn');
                 const pauseResumeBtn = document.getElementById('pauseResumeBtn');
                 const countdown = document.getElementById('countdown');
-                const statusText = document.getElementById('statusText');
+                const timerStatus = document.getElementById('timerStatus');
                 const repetitionCounter = document.getElementById('repetitionCounter');
 
                 const minutes = Math.floor(this.currentTime / 60);
@@ -753,7 +854,7 @@
                 countdown.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
                 countdown.classList.remove('paused', 'in-break', 'pulse');
-                statusText.classList.remove('in-break');
+                timerStatus.classList.remove('in-break');
 
                 if (this.isRunning) {
                     startStopBtn.textContent = 'Stop';
@@ -762,22 +863,16 @@
 
                     if (this.isPaused) {
                         countdown.classList.add('paused');
-                        statusText.textContent = 'Pausiert';
+                        timerStatus.textContent = 'Pausiert';
                         pauseResumeBtn.textContent = 'Fortsetzen';
                     } else if (this.isInBreak) {
                         countdown.classList.add('in-break');
-                        statusText.textContent = 'Pause';
-                        statusText.classList.add('in-break');
+                        timerStatus.textContent = 'Pause';
+                        timerStatus.classList.add('in-break');
                         pauseResumeBtn.textContent = 'Pause';
-
-                        const progressBar = document.getElementById('currentProgressBar');
-                        progressBar.classList.add('in-break');
                     } else {
-                        statusText.textContent = `Übung ${this.currentRepetition}`;
+                        timerStatus.textContent = 'Übung';
                         pauseResumeBtn.textContent = 'Pause';
-
-                        const progressBar = document.getElementById('currentProgressBar');
-                        progressBar.classList.remove('in-break');
 
                         if (this.currentTime <= 3 && this.currentTime > 0) {
                             countdown.classList.add('pulse');
@@ -788,28 +883,33 @@
                     startStopBtn.classList.remove('running');
                     pauseResumeBtn.disabled = true;
                     pauseResumeBtn.textContent = 'Pause';
-
-                    if (this.currentRepetition === 0) {
-                        statusText.textContent = 'Bereit zum Start';
-                    }
+                    timerStatus.textContent = '';
                 }
 
-                repetitionCounter.textContent = `${this.currentRepetition} / ${this.repetitions}`;
+                repetitionCounter.textContent = `Übung ${this.currentRepetition} / ${this.repetitions}`;
 
+                // Update circular progress ring
+                const circleProgress = document.getElementById('circleProgress');
+                const radius = 140;
+                const circumference = 2 * Math.PI * radius;
+
+                circleProgress.style.strokeDasharray = `${circumference} ${circumference}`;
+
+                // Calculate progress (remaining time shown as emptying circle)
                 const currentMaxTime = this.isInBreak ? this.pauseTime : this.totalTime;
-                const currentProgress = this.isRunning ?
-                    Math.round(((currentMaxTime - this.currentTime) / currentMaxTime) * 100) : 0;
-                document.getElementById('currentProgress').textContent = `${currentProgress}%`;
-                document.getElementById('currentProgressBar').style.width = `${currentProgress}%`;
+                const progressPercent = this.isRunning ?
+                    (this.currentTime / currentMaxTime) : 1;
+                const offset = circumference * (1 - progressPercent);
 
-                const totalReps = this.repetitions;
-                const completedReps = this.currentRepetition > 0 ? this.currentRepetition - 1 : 0;
-                const currentRepProgress = this.isRunning && !this.isInBreak ?
-                    ((currentMaxTime - this.currentTime) / currentMaxTime) : 0;
-                const overallProgress = totalReps > 0 ?
-                    Math.round(((completedReps + currentRepProgress) / totalReps) * 100) : 0;
-                document.getElementById('overallProgress').textContent = `${overallProgress}%`;
-                document.getElementById('overallProgressBar').style.width = `${overallProgress}%`;
+                circleProgress.style.strokeDashoffset = offset;
+
+                // Update circle color classes
+                circleProgress.classList.remove('in-break', 'paused');
+                if (this.isPaused) {
+                    circleProgress.classList.add('paused');
+                } else if (this.isInBreak) {
+                    circleProgress.classList.add('in-break');
+                }
             }
         }
 
@@ -825,9 +925,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             timerManager = new TimerManager();
-
-            const settingsContent = document.getElementById('settingsContent');
-            settingsContent.style.maxHeight = settingsContent.scrollHeight + 'px';
         });
     </script>
 </body>
