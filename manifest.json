@@ -3,6 +3,7 @@
   "short_name": "Timer",
   "description": "Timer für Dehnübungen mit automatischen Wiederholungen",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0a",
