@@ -431,6 +431,53 @@
             }
         }
 
+        .preset-controls {
+            margin-bottom: var(--spacing-lg);
+            padding-bottom: var(--spacing-lg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preset-actions {
+            display: flex;
+            gap: var(--spacing-xs);
+            margin-top: var(--spacing-xs);
+        }
+
+        .preset-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+            min-height: 40px;
+        }
+
+        .btn-preset {
+            background: var(--border);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-preset:hover:not(:disabled) {
+            background: #333333;
+        }
+
+        .btn-preset.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-preset.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-preset.danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-preset.danger:hover {
+            background: #dc2626;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             * {
                 animation: none !important;
@@ -473,6 +520,21 @@
                 <h2>Einstellungen</h2>
                 <button class="close-btn" id="closeSettings">✕</button>
             </div>
+
+            <div class="preset-controls">
+                <div class="setting-group">
+                    <label for="presetSelect">Preset</label>
+                    <select id="presetSelect">
+                        <option value="">-- Neues Preset --</option>
+                    </select>
+                </div>
+                <div class="preset-actions">
+                    <button class="btn-preset primary" id="savePresetBtn">Speichern</button>
+                    <button class="btn-preset" id="renamePresetBtn" disabled>Umbenennen</button>
+                    <button class="btn-preset danger" id="deletePresetBtn" disabled>Löschen</button>
+                </div>
+            </div>
+
             <div class="settings-inputs">
                 <div class="setting-group">
                     <label for="timerDuration">Timer-Dauer (Sekunden)</label>
@@ -525,10 +587,15 @@
                 this.audioContext = null;
                 this.sounds = {};
 
+                this.presets = [];
+                this.currentPresetId = null;
+
                 this.initAudio();
                 this.loadSettings();
+                this.loadPresets();
                 this.bindEvents();
                 this.updateDisplay();
+                this.updatePresetUI();
             }
 
             initAudio() {
@@ -688,6 +755,144 @@
                 }
             }
 
+            loadPresets() {
+                try {
+                    const presetsData = localStorage.getItem('timerPresets');
+                    this.presets = presetsData ? JSON.parse(presetsData) : [];
+
+                    const currentPresetId = localStorage.getItem('currentPresetId');
+                    this.currentPresetId = currentPresetId || null;
+                } catch (e) {
+                    console.warn('Could not load presets:', e);
+                    this.presets = [];
+                    this.currentPresetId = null;
+                }
+            }
+
+            savePresetsToStorage() {
+                try {
+                    localStorage.setItem('timerPresets', JSON.stringify(this.presets));
+                    if (this.currentPresetId) {
+                        localStorage.setItem('currentPresetId', this.currentPresetId);
+                    } else {
+                        localStorage.removeItem('currentPresetId');
+                    }
+                } catch (e) {
+                    console.warn('Could not save presets:', e);
+                }
+            }
+
+            generatePresetId() {
+                return 'preset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+
+            createPreset(name) {
+                const preset = {
+                    id: this.generatePresetId(),
+                    name: name,
+                    timerDuration: this.totalTime,
+                    pauseDuration: this.pauseTime,
+                    repetitions: this.repetitions,
+                    selectedSound: this.selectedSound,
+                    volume: this.volume
+                };
+
+                this.presets.push(preset);
+                this.currentPresetId = preset.id;
+                this.savePresetsToStorage();
+                this.updatePresetUI();
+
+                return preset;
+            }
+
+            loadPreset(id) {
+                const preset = this.presets.find(p => p.id === id);
+                if (!preset) return;
+
+                this.totalTime = preset.timerDuration;
+                this.pauseTime = preset.pauseDuration;
+                this.repetitions = preset.repetitions;
+                this.selectedSound = preset.selectedSound;
+                this.volume = preset.volume;
+
+                document.getElementById('timerDuration').value = this.totalTime;
+                document.getElementById('pauseDuration').value = this.pauseTime;
+                document.getElementById('repetitions').value = this.repetitions;
+                document.getElementById('soundSelect').value = this.selectedSound;
+                document.getElementById('volume').value = this.volume * 100;
+                document.getElementById('volumeValue').textContent = Math.round(this.volume * 100);
+
+                if (!this.isRunning) {
+                    this.currentTime = this.totalTime;
+                    this.updateDisplay();
+                }
+
+                this.currentPresetId = id;
+                localStorage.setItem('currentPresetId', id);
+                this.updatePresetUI();
+            }
+
+            updatePreset(id) {
+                const preset = this.presets.find(p => p.id === id);
+                if (!preset) return;
+
+                preset.timerDuration = this.totalTime;
+                preset.pauseDuration = this.pauseTime;
+                preset.repetitions = this.repetitions;
+                preset.selectedSound = this.selectedSound;
+                preset.volume = this.volume;
+
+                this.savePresetsToStorage();
+                this.updatePresetUI();
+            }
+
+            renamePreset(id, newName) {
+                const preset = this.presets.find(p => p.id === id);
+                if (!preset) return;
+
+                preset.name = newName;
+                this.savePresetsToStorage();
+                this.updatePresetUI();
+            }
+
+            deletePreset(id) {
+                this.presets = this.presets.filter(p => p.id !== id);
+
+                if (this.currentPresetId === id) {
+                    this.currentPresetId = null;
+                    localStorage.removeItem('currentPresetId');
+                }
+
+                this.savePresetsToStorage();
+                this.updatePresetUI();
+            }
+
+            updatePresetUI() {
+                const presetSelect = document.getElementById('presetSelect');
+                const renameBtn = document.getElementById('renamePresetBtn');
+                const deleteBtn = document.getElementById('deletePresetBtn');
+
+                // Dropdown aktualisieren
+                presetSelect.innerHTML = '<option value="">-- Neues Preset --</option>';
+
+                this.presets.forEach(preset => {
+                    const option = document.createElement('option');
+                    option.value = preset.id;
+                    option.textContent = preset.name;
+                    presetSelect.appendChild(option);
+                });
+
+                // Aktuelles Preset auswählen
+                if (this.currentPresetId) {
+                    presetSelect.value = this.currentPresetId;
+                }
+
+                // Buttons aktivieren/deaktivieren
+                const hasPreset = this.currentPresetId !== null;
+                renameBtn.disabled = !hasPreset;
+                deleteBtn.disabled = !hasPreset;
+            }
+
             bindEvents() {
                 document.getElementById('startStopBtn').addEventListener('click', () => {
                     if (this.isRunning) {
@@ -765,6 +970,68 @@
                 document.addEventListener('visibilitychange', () => {
                     if (document.hidden && this.isRunning && !this.isPaused) {
                         // Optional: Pause when app goes to background
+                    }
+                });
+
+                // Preset events
+                document.getElementById('presetSelect').addEventListener('change', (e) => {
+                    if (this.isRunning) {
+                        alert('Bitte stoppen Sie den Timer, bevor Sie ein Preset laden.');
+                        e.target.value = this.currentPresetId || '';
+                        return;
+                    }
+
+                    const presetId = e.target.value;
+                    if (presetId) {
+                        this.loadPreset(presetId);
+                    } else {
+                        this.currentPresetId = null;
+                        localStorage.removeItem('currentPresetId');
+                        this.updatePresetUI();
+                    }
+                });
+
+                document.getElementById('savePresetBtn').addEventListener('click', () => {
+                    if (this.currentPresetId) {
+                        // Update existing preset
+                        const confirmUpdate = confirm('Möchten Sie das aktuelle Preset aktualisieren?');
+                        if (confirmUpdate) {
+                            this.updatePreset(this.currentPresetId);
+                            alert('Preset aktualisiert!');
+                        }
+                    } else {
+                        // Create new preset
+                        const name = prompt('Bitte geben Sie einen Namen für das Preset ein:');
+                        if (name && name.trim()) {
+                            this.createPreset(name.trim());
+                            alert('Preset gespeichert!');
+                        }
+                    }
+                });
+
+                document.getElementById('renamePresetBtn').addEventListener('click', () => {
+                    if (!this.currentPresetId) return;
+
+                    const currentPreset = this.presets.find(p => p.id === this.currentPresetId);
+                    if (!currentPreset) return;
+
+                    const newName = prompt('Neuer Name für das Preset:', currentPreset.name);
+                    if (newName && newName.trim()) {
+                        this.renamePreset(this.currentPresetId, newName.trim());
+                        alert('Preset umbenannt!');
+                    }
+                });
+
+                document.getElementById('deletePresetBtn').addEventListener('click', () => {
+                    if (!this.currentPresetId) return;
+
+                    const currentPreset = this.presets.find(p => p.id === this.currentPresetId);
+                    if (!currentPreset) return;
+
+                    const confirmDelete = confirm(`Möchten Sie das Preset "${currentPreset.name}" wirklich löschen?`);
+                    if (confirmDelete) {
+                        this.deletePreset(this.currentPresetId);
+                        alert('Preset gelöscht!');
                     }
                 });
             }
