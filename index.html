@@ -534,6 +534,42 @@
             initAudio() {
                 try {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.audioUnlocked = false;
+
+                    // iOS/Safari erfordert Audio-Entsperrung bei Benutzerinteraktion
+                    const unlockAudio = async () => {
+                        if (this.audioUnlocked) return;
+
+                        try {
+                            // AudioContext fortsetzen falls suspended
+                            if (this.audioContext.state === 'suspended') {
+                                await this.audioContext.resume();
+                            }
+
+                            // Kurzen stillen Ton abspielen um iOS zu entsperren
+                            const buffer = this.audioContext.createBuffer(1, 1, 22050);
+                            const source = this.audioContext.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(this.audioContext.destination);
+                            source.start(0);
+
+                            this.audioUnlocked = true;
+                            console.log('Audio unlocked for iOS');
+
+                            // Event-Listener nach erfolgreichem Entsperren entfernen
+                            document.removeEventListener('touchstart', unlockAudio, true);
+                            document.removeEventListener('touchend', unlockAudio, true);
+                            document.removeEventListener('click', unlockAudio, true);
+                        } catch (e) {
+                            console.warn('Could not unlock audio:', e);
+                        }
+                    };
+
+                    // Event-Listener für erste Benutzerinteraktion hinzufügen
+                    document.addEventListener('touchstart', unlockAudio, true);
+                    document.addEventListener('touchend', unlockAudio, true);
+                    document.addEventListener('click', unlockAudio, true);
+
                 } catch (e) {
                     console.warn('Web Audio API not supported');
                 }
