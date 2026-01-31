@@ -542,6 +542,11 @@
                 </div>
 
                 <div class="setting-group">
+                    <label for="prepDuration">Vorbereitungszeit (Sekunden)</label>
+                    <input type="number" id="prepDuration" min="0" max="30" step="1" value="5">
+                </div>
+
+                <div class="setting-group">
                     <label for="pauseDuration">Pause zwischen Übungen (Sekunden)</label>
                     <input type="number" id="pauseDuration" min="0" max="60" step="5" value="5">
                 </div>
@@ -575,11 +580,13 @@
                 this.currentTime = 0;
                 this.totalTime = 60;
                 this.pauseTime = 5;
+                this.prepTime = 5;
                 this.repetitions = 10;
                 this.currentRepetition = 0;
                 this.isRunning = false;
                 this.isPaused = false;
                 this.isInBreak = false;
+                this.isInPrep = false;
                 this.intervalId = null;
                 this.selectedSound = 'beep';
                 this.volume = 0.8;
@@ -722,11 +729,13 @@
 
                     this.totalTime = settings.timerDuration || 60;
                     this.pauseTime = settings.pauseDuration || 5;
+                    this.prepTime = settings.prepDuration !== undefined ? settings.prepDuration : 5;
                     this.repetitions = settings.repetitions || 10;
                     this.selectedSound = settings.selectedSound || 'beep';
                     this.volume = settings.volume !== undefined ? settings.volume : 0.8;
 
                     document.getElementById('timerDuration').value = this.totalTime;
+                    document.getElementById('prepDuration').value = this.prepTime;
                     document.getElementById('pauseDuration').value = this.pauseTime;
                     document.getElementById('repetitions').value = this.repetitions;
                     document.getElementById('soundSelect').value = this.selectedSound;
@@ -743,6 +752,7 @@
                 const settings = {
                     timerDuration: this.totalTime,
                     pauseDuration: this.pauseTime,
+                    prepDuration: this.prepTime,
                     repetitions: this.repetitions,
                     selectedSound: this.selectedSound,
                     volume: this.volume
@@ -792,6 +802,7 @@
                     name: name,
                     timerDuration: this.totalTime,
                     pauseDuration: this.pauseTime,
+                    prepDuration: this.prepTime,
                     repetitions: this.repetitions,
                     selectedSound: this.selectedSound,
                     volume: this.volume
@@ -811,11 +822,13 @@
 
                 this.totalTime = preset.timerDuration;
                 this.pauseTime = preset.pauseDuration;
+                this.prepTime = preset.prepDuration !== undefined ? preset.prepDuration : 5;
                 this.repetitions = preset.repetitions;
                 this.selectedSound = preset.selectedSound;
                 this.volume = preset.volume;
 
                 document.getElementById('timerDuration').value = this.totalTime;
+                document.getElementById('prepDuration').value = this.prepTime;
                 document.getElementById('pauseDuration').value = this.pauseTime;
                 document.getElementById('repetitions').value = this.repetitions;
                 document.getElementById('soundSelect').value = this.selectedSound;
@@ -838,6 +851,7 @@
 
                 preset.timerDuration = this.totalTime;
                 preset.pauseDuration = this.pauseTime;
+                preset.prepDuration = this.prepTime;
                 preset.repetitions = this.repetitions;
                 preset.selectedSound = this.selectedSound;
                 preset.volume = this.volume;
@@ -920,6 +934,11 @@
                         this.currentTime = this.totalTime;
                         this.updateDisplay();
                     }
+                    this.saveSettings();
+                });
+
+                document.getElementById('prepDuration').addEventListener('change', (e) => {
+                    this.prepTime = parseInt(e.target.value);
                     this.saveSettings();
                 });
 
@@ -1046,8 +1065,15 @@
 
             start() {
                 if (this.currentRepetition === 0) {
-                    this.currentRepetition = 1;
-                    this.currentTime = this.totalTime;
+                    // Bei neuem Start: Prep-Phase wenn prepTime > 0
+                    if (this.prepTime > 0) {
+                        this.isInPrep = true;
+                        this.currentTime = this.prepTime;
+                        this.currentRepetition = 0;
+                    } else {
+                        this.currentRepetition = 1;
+                        this.currentTime = this.totalTime;
+                    }
                 }
 
                 this.isRunning = true;
@@ -1064,6 +1090,7 @@
                 this.currentRepetition = 0;
                 this.currentTime = this.totalTime;
                 this.isInBreak = false;
+                this.isInPrep = false;
                 this.updateDisplay();
             }
 
@@ -1086,13 +1113,20 @@
             tick() {
                 this.currentTime--;
 
-                // Countdown-Beeps in den letzten 3 Sekunden (Übung und Pause)
+                // Countdown-Beeps in den letzten 3 Sekunden (Übung, Pause und Vorbereitung)
                 if (this.currentTime > 0 && this.currentTime <= 3) {
                     this.playSound('countdown');
                 }
 
                 if (this.currentTime <= 0) {
-                    if (this.isInBreak) {
+                    if (this.isInPrep) {
+                        // Ende der Vorbereitungszeit - zur ersten Übung
+                        this.playSound('main');
+                        this.vibrate();
+                        this.isInPrep = false;
+                        this.currentRepetition = 1;
+                        this.currentTime = this.totalTime;
+                    } else if (this.isInBreak) {
                         // Ende der Pause - normaler Beep
                         this.playSound('main');
                         this.vibrate();
@@ -1171,6 +1205,11 @@
                         countdown.classList.add('paused');
                         timerStatus.textContent = 'Pausiert';
                         pauseResumeBtn.textContent = 'Fortsetzen';
+                    } else if (this.isInPrep) {
+                        countdown.classList.add('in-break');
+                        timerStatus.textContent = 'Vorbereitung';
+                        timerStatus.classList.add('in-break');
+                        pauseResumeBtn.textContent = 'Pause';
                     } else if (this.isInBreak) {
                         countdown.classList.add('in-break');
                         timerStatus.textContent = 'Pause';
@@ -1202,7 +1241,7 @@
                 circleProgress.style.strokeDasharray = `${circumference} ${circumference}`;
 
                 // Calculate progress (remaining time shown as emptying circle)
-                const currentMaxTime = this.isInBreak ? this.pauseTime : this.totalTime;
+                const currentMaxTime = this.isInPrep ? this.prepTime : (this.isInBreak ? this.pauseTime : this.totalTime);
                 const progressPercent = this.isRunning ?
                     (this.currentTime / currentMaxTime) : 1;
                 const offset = circumference * (1 - progressPercent);
@@ -1213,7 +1252,7 @@
                 circleProgress.classList.remove('in-break', 'paused');
                 if (this.isPaused) {
                     circleProgress.classList.add('paused');
-                } else if (this.isInBreak) {
+                } else if (this.isInPrep || this.isInBreak) {
                     circleProgress.classList.add('in-break');
                 }
             }
