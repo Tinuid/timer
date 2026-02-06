@@ -597,6 +597,8 @@
                 this.presets = [];
                 this.currentPresetId = null;
 
+                this.circleCircumference = 2 * Math.PI * 140;
+
                 this.initAudio();
                 this.loadSettings();
                 this.loadPresets();
@@ -793,7 +795,7 @@
             }
 
             generatePresetId() {
-                return 'preset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                return 'preset_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
             }
 
             createPreset(name) {
@@ -1168,8 +1170,6 @@
             }
 
             complete() {
-                this.playSound('main');
-                this.vibrate();
                 this.stop();
 
                 const timerStatus = document.getElementById('timerStatus');
@@ -1235,16 +1235,14 @@
 
                 // Update circular progress ring
                 const circleProgress = document.getElementById('circleProgress');
-                const radius = 140;
-                const circumference = 2 * Math.PI * radius;
 
-                circleProgress.style.strokeDasharray = `${circumference} ${circumference}`;
+                circleProgress.style.strokeDasharray = `${this.circleCircumference} ${this.circleCircumference}`;
 
                 // Calculate progress (remaining time shown as emptying circle)
                 const currentMaxTime = this.isInPrep ? this.prepTime : (this.isInBreak ? this.pauseTime : this.totalTime);
                 const progressPercent = this.isRunning ?
                     (this.currentTime / currentMaxTime) : 1;
-                const offset = circumference * (1 - progressPercent);
+                const offset = this.circleCircumference * (1 - progressPercent);
 
                 circleProgress.style.strokeDashoffset = offset;
 
