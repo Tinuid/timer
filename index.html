@@ -288,7 +288,7 @@
             stroke: var(--primary);
             stroke-width: 12;
             stroke-linecap: round;
-            transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
+            transition: stroke 0.3s ease;
         }
 
         .circle-progress.in-break {
@@ -588,6 +588,8 @@
                 this.isInBreak = false;
                 this.isInPrep = false;
                 this.intervalId = null;
+                this.animationFrameId = null;
+                this.lastTickTime = 0;
                 this.selectedSound = 'beep';
                 this.volume = 0.8;
 
@@ -1080,15 +1082,18 @@
 
                 this.isRunning = true;
                 this.isPaused = false;
+                this.lastTickTime = performance.now();
 
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
+                this.startRingAnimation();
             }
 
             stop() {
                 this.isRunning = false;
                 this.isPaused = false;
                 clearInterval(this.intervalId);
+                this.stopRingAnimation();
                 this.currentRepetition = 0;
                 this.currentTime = this.totalTime;
                 this.isInBreak = false;
@@ -1099,13 +1104,31 @@
             pause() {
                 this.isPaused = true;
                 clearInterval(this.intervalId);
+                this.stopRingAnimation();
                 this.updateDisplay();
             }
 
             resume() {
                 this.isPaused = false;
+                this.lastTickTime = performance.now();
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
+                this.startRingAnimation();
+            }
+
+            startRingAnimation() {
+                const animate = () => {
+                    this.updateRing();
+                    this.animationFrameId = requestAnimationFrame(animate);
+                };
+                this.animationFrameId = requestAnimationFrame(animate);
+            }
+
+            stopRingAnimation() {
+                if (this.animationFrameId) {
+                    cancelAnimationFrame(this.animationFrameId);
+                    this.animationFrameId = null;
+                }
             }
 
             reset() {
@@ -1113,6 +1136,7 @@
             }
 
             tick() {
+                this.lastTickTime = performance.now();
                 this.currentTime--;
 
                 // Countdown-Beeps in den letzten 3 Sekunden (Übung, Pause und Vorbereitung)
@@ -1233,17 +1257,29 @@
 
                 repetitionCounter.textContent = `Übung ${this.currentRepetition} / ${this.repetitions}`;
 
-                // Update circular progress ring
+                this.updateRing();
+            }
+
+            updateRing() {
                 const circleProgress = document.getElementById('circleProgress');
 
                 circleProgress.style.strokeDasharray = `${this.circleCircumference} ${this.circleCircumference}`;
 
-                // Calculate progress (remaining time shown as emptying circle)
                 const currentMaxTime = this.isInPrep ? this.prepTime : (this.isInBreak ? this.pauseTime : this.totalTime);
-                const progressPercent = this.isRunning ?
-                    (this.currentTime / currentMaxTime) : 1;
-                const offset = this.circleCircumference * (1 - progressPercent);
 
+                let progressPercent;
+                if (this.isRunning && !this.isPaused) {
+                    // Interpoliere zwischen den Sekunden-Ticks für flüssige Animation
+                    const elapsed = (performance.now() - this.lastTickTime) / 1000;
+                    const smoothTime = Math.max(0, this.currentTime - elapsed);
+                    progressPercent = smoothTime / currentMaxTime;
+                } else if (this.isRunning) {
+                    progressPercent = this.currentTime / currentMaxTime;
+                } else {
+                    progressPercent = 1;
+                }
+
+                const offset = this.circleCircumference * (1 - progressPercent);
                 circleProgress.style.strokeDashoffset = offset;
 
                 // Update circle color classes
