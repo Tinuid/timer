@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dehnuebungen-timer-v4';
+const CACHE_NAME = 'dehnuebungen-timer-v5';
 const urlsToCache = [
   './',
   './index.html',

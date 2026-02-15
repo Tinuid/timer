@@ -243,6 +243,141 @@
             margin-top: var(--spacing-xs);
         }
 
+        .sound-sections {
+            border-top: 1px solid var(--border);
+            padding-top: var(--spacing-md);
+        }
+
+        .sound-section {
+            margin-bottom: var(--spacing-sm);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .sound-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--bg);
+            cursor: pointer;
+            user-select: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .sound-section-header:hover {
+            background: var(--border);
+        }
+
+        .sound-section-header .arrow {
+            transition: transform 0.2s ease;
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .sound-section.open .sound-section-header .arrow {
+            transform: rotate(90deg);
+        }
+
+        .sound-section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding: 0 1rem;
+        }
+
+        .sound-section.open .sound-section-content {
+            max-height: 200px;
+            padding: 0.75rem 1rem;
+        }
+
+        .sound-row {
+            display: flex;
+            gap: var(--spacing-xs);
+            align-items: center;
+        }
+
+        .sound-row select {
+            flex: 1;
+        }
+
+        .btn-test {
+            padding: 0.75rem;
+            min-height: auto;
+            min-width: 44px;
+            background: var(--border);
+            color: var(--text);
+            border: 1px solid var(--border);
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: var(--radius);
+        }
+
+        .btn-test:hover {
+            background: #333;
+        }
+
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--border);
+        }
+
+        .toggle-group label {
+            margin-bottom: 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            border-radius: 28px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(22px);
+        }
+
         .timer-display {
             text-align: center;
             width: 100%;
@@ -556,19 +691,116 @@
                     <input type="number" id="repetitions" min="1" max="50" value="10">
                 </div>
 
-                <div class="setting-group">
-                    <label for="soundSelect">Ton-Auswahl</label>
-                    <select id="soundSelect">
-                        <option value="beep">Beep</option>
-                        <option value="chime">Chime</option>
-                        <option value="bell">Bell</option>
-                    </select>
+                <div class="sound-sections">
+                    <div class="sound-section" id="countdownSection">
+                        <div class="sound-section-header" data-section="countdownSection">
+                            <span>Countdown (letzte 3 Sek.)</span>
+                            <span class="arrow">▸</span>
+                        </div>
+                        <div class="sound-section-content">
+                            <div class="setting-group">
+                                <label for="countdownSound">Ton</label>
+                                <div class="sound-row">
+                                    <select id="countdownSound">
+                                        <option value="beep">Beep</option>
+                                        <option value="chime">Chime</option>
+                                        <option value="bell">Glocke</option>
+                                        <option value="whistle">Pfiff</option>
+                                        <option value="gong">Gong</option>
+                                        <option value="doubleBeep">Doppel-Beep</option>
+                                        <option value="tripleRing">Dreifach-Klingeln</option>
+                                        <option value="softPing">Sanfter Ping</option>
+                                        <option value="alarm">Alarm</option>
+                                        <option value="trumpet">Trompete</option>
+                                        <option value="harp">Harfe</option>
+                                        <option value="click" selected>Klick</option>
+                                    </select>
+                                    <button class="btn-test" id="testCountdownSound" title="Ton testen">&#9654;</button>
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label for="countdownVolume">Lautstärke</label>
+                                <input type="range" id="countdownVolume" min="0" max="100" value="30">
+                                <div class="volume-display"><span id="countdownVolumeValue">30</span>%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sound-section" id="pauseSection">
+                        <div class="sound-section-header" data-section="pauseSection">
+                            <span>Pause</span>
+                            <span class="arrow">▸</span>
+                        </div>
+                        <div class="sound-section-content">
+                            <div class="setting-group">
+                                <label for="pauseSound">Ton</label>
+                                <div class="sound-row">
+                                    <select id="pauseSound">
+                                        <option value="beep">Beep</option>
+                                        <option value="chime">Chime</option>
+                                        <option value="bell">Glocke</option>
+                                        <option value="whistle">Pfiff</option>
+                                        <option value="gong">Gong</option>
+                                        <option value="doubleBeep">Doppel-Beep</option>
+                                        <option value="tripleRing" selected>Dreifach-Klingeln</option>
+                                        <option value="softPing">Sanfter Ping</option>
+                                        <option value="alarm">Alarm</option>
+                                        <option value="trumpet">Trompete</option>
+                                        <option value="harp">Harfe</option>
+                                        <option value="click">Klick</option>
+                                    </select>
+                                    <button class="btn-test" id="testPauseSound" title="Ton testen">&#9654;</button>
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label for="pauseVolume">Lautstärke</label>
+                                <input type="range" id="pauseVolume" min="0" max="100" value="70">
+                                <div class="volume-display"><span id="pauseVolumeValue">70</span>%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sound-section" id="exerciseSection">
+                        <div class="sound-section-header" data-section="exerciseSection">
+                            <span>Übung</span>
+                            <span class="arrow">▸</span>
+                        </div>
+                        <div class="sound-section-content">
+                            <div class="setting-group">
+                                <label for="exerciseSound">Ton</label>
+                                <div class="sound-row">
+                                    <select id="exerciseSound">
+                                        <option value="beep" selected>Beep</option>
+                                        <option value="chime">Chime</option>
+                                        <option value="bell">Glocke</option>
+                                        <option value="whistle">Pfiff</option>
+                                        <option value="gong">Gong</option>
+                                        <option value="doubleBeep">Doppel-Beep</option>
+                                        <option value="tripleRing">Dreifach-Klingeln</option>
+                                        <option value="softPing">Sanfter Ping</option>
+                                        <option value="alarm">Alarm</option>
+                                        <option value="trumpet">Trompete</option>
+                                        <option value="harp">Harfe</option>
+                                        <option value="click">Klick</option>
+                                    </select>
+                                    <button class="btn-test" id="testExerciseSound" title="Ton testen">&#9654;</button>
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label for="exerciseVolume">Lautstärke</label>
+                                <input type="range" id="exerciseVolume" min="0" max="100" value="80">
+                                <div class="volume-display"><span id="exerciseVolumeValue">80</span>%</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="setting-group">
-                    <label for="volume">Lautstärke</label>
-                    <input type="range" id="volume" min="0" max="100" value="80">
-                    <div class="volume-display"><span id="volumeValue">80</span>%</div>
+                <div class="toggle-group">
+                    <label for="wakeLockToggle">Bildschirm aktiv halten</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="wakeLockToggle">
+                        <span class="toggle-slider"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -590,8 +822,14 @@
                 this.intervalId = null;
                 this.animationFrameId = null;
                 this.lastTickTime = 0;
-                this.selectedSound = 'beep';
-                this.volume = 0.8;
+                this.countdownSound = 'click';
+                this.countdownVolume = 0.3;
+                this.pauseSound = 'tripleRing';
+                this.pauseVolume = 0.7;
+                this.exerciseSound = 'beep';
+                this.exerciseVolume = 0.8;
+                this.keepScreenActive = false;
+                this.wakeLockSentinel = null;
 
                 this.audioContext = null;
                 this.sounds = {};
@@ -653,72 +891,129 @@
                 }
             }
 
-            async playSound(soundType = 'main') {
-                if (this.audioContext) {
-                    try {
-                        if (this.audioContext.state === 'suspended') {
-                            await this.audioContext.resume();
-                        }
-
-                        const oscillator = this.audioContext.createOscillator();
-                        const gainNode = this.audioContext.createGain();
-
-                        oscillator.connect(gainNode);
-                        gainNode.connect(this.audioContext.destination);
-
-                        let frequency, duration, volume, type;
-
-                        if (soundType === 'breakStart') {
-                            // Klingeln für Pausenstart - mehrere Töne hintereinander
-                            const ring = async () => {
-                                for (let i = 0; i < 3; i++) {
-                                    const osc = this.audioContext.createOscillator();
-                                    const gain = this.audioContext.createGain();
-                                    osc.connect(gain);
-                                    gain.connect(this.audioContext.destination);
-
-                                    osc.frequency.value = 1000;
-                                    osc.type = 'sine';
-                                    gain.gain.setValueAtTime(this.volume * 0.7, this.audioContext.currentTime);
-                                    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-
-                                    osc.start(this.audioContext.currentTime + i * 0.25);
-                                    osc.stop(this.audioContext.currentTime + i * 0.25 + 0.2);
-                                }
-                            };
-                            await ring();
-                            return;
-                        } else if (soundType === 'countdown') {
-                            // Leiser Beep für Countdown (letzte 3 Sekunden der Pause)
-                            frequency = 600;
-                            duration = 0.1;
-                            volume = this.volume * 0.3;
-                            type = 'sine';
-                        } else {
-                            // Normaler Beep am Ende der Pause/Übung
-                            const frequencies = {
-                                'beep': 800,
-                                'chime': 1200,
-                                'bell': 600
-                            };
-                            frequency = frequencies[this.selectedSound] || 800;
-                            duration = 0.5;
-                            volume = this.volume;
-                            type = this.selectedSound === 'bell' ? 'sine' : 'square';
-                        }
-
-                        oscillator.frequency.value = frequency;
-                        oscillator.type = type;
-
-                        gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
-                        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
-
-                        oscillator.start(this.audioContext.currentTime);
-                        oscillator.stop(this.audioContext.currentTime + duration);
-                    } catch (e) {
-                        console.warn('Could not play sound:', e);
+            async playSound(phase) {
+                if (!this.audioContext) return;
+                try {
+                    if (this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
                     }
+
+                    const phaseSettings = {
+                        countdown: { sound: this.countdownSound, volume: this.countdownVolume },
+                        pause: { sound: this.pauseSound, volume: this.pauseVolume },
+                        exercise: { sound: this.exerciseSound, volume: this.exerciseVolume }
+                    };
+
+                    const settings = phaseSettings[phase];
+                    if (!settings) return;
+
+                    const isCountdown = phase === 'countdown';
+                    this.synthesizeSound(settings.sound, settings.volume, isCountdown);
+                } catch (e) {
+                    console.warn('Could not play sound:', e);
                 }
+            }
+
+            playTestSound(phase) {
+                const phaseSettings = {
+                    countdown: { sound: this.countdownSound, volume: this.countdownVolume },
+                    pause: { sound: this.pauseSound, volume: this.pauseVolume },
+                    exercise: { sound: this.exerciseSound, volume: this.exerciseVolume }
+                };
+                const settings = phaseSettings[phase];
+                if (!settings) return;
+                this.playSound(phase);
+            }
+
+            synthesizeSound(soundName, volume, short = false) {
+                const ctx = this.audioContext;
+                const now = ctx.currentTime;
+
+                if (short) {
+                    // Countdown-Tick: kurze Version des gewählten Tons
+                    const freqMap = {
+                        beep: 800, chime: 1200, bell: 600, whistle: 1500,
+                        gong: 200, doubleBeep: 800, tripleRing: 1000,
+                        softPing: 440, alarm: 800, trumpet: 523, harp: 880, click: 1000
+                    };
+                    this.playTone(freqMap[soundName] || 600, 'sine', 0.1, volume * 0.5);
+                    return;
+                }
+
+                switch (soundName) {
+                    case 'beep':
+                        this.playTone(800, 'square', 0.5, volume);
+                        break;
+                    case 'chime':
+                        this.playTone(1200, 'square', 0.5, volume);
+                        break;
+                    case 'bell':
+                        this.playTone(600, 'sine', 0.8, volume);
+                        break;
+                    case 'whistle': {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(1500, now);
+                        osc.frequency.exponentialRampToValueAtTime(800, now + 0.6);
+                        gain.gain.setValueAtTime(volume, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                        osc.start(now);
+                        osc.stop(now + 0.6);
+                        break;
+                    }
+                    case 'gong':
+                        this.playTone(200, 'sine', 1.5, volume);
+                        break;
+                    case 'doubleBeep':
+                        this.playTone(800, 'square', 0.1, volume, 0);
+                        this.playTone(800, 'square', 0.1, volume, 0.2);
+                        break;
+                    case 'tripleRing':
+                        for (let i = 0; i < 3; i++) {
+                            this.playTone(1000, 'sine', 0.2, volume * 0.7, i * 0.25);
+                        }
+                        break;
+                    case 'softPing':
+                        this.playTone(440, 'sine', 0.3, volume);
+                        break;
+                    case 'alarm':
+                        this.playTone(800, 'square', 0.25, volume, 0);
+                        this.playTone(600, 'square', 0.25, volume, 0.3);
+                        break;
+                    case 'trumpet':
+                        this.playTone(523, 'sawtooth', 0.6, volume);
+                        break;
+                    case 'harp': {
+                        const notes = [523, 440, 349, 262];
+                        notes.forEach((freq, i) => {
+                            this.playTone(freq, 'sine', 0.4, volume * 0.8, i * 0.12);
+                        });
+                        break;
+                    }
+                    case 'click':
+                        this.playTone(1000, 'square', 0.05, volume);
+                        break;
+                    default:
+                        this.playTone(800, 'square', 0.5, volume);
+                }
+            }
+
+            playTone(freq, type, duration, volume, delay = 0) {
+                const ctx = this.audioContext;
+                const now = ctx.currentTime + delay;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = freq;
+                osc.type = type;
+                gain.gain.setValueAtTime(Math.max(volume, 0.001), now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.start(now);
+                osc.stop(now + duration + 0.01);
             }
 
             vibrate() {
@@ -735,16 +1030,45 @@
                     this.pauseTime = settings.pauseDuration || 5;
                     this.prepTime = settings.prepDuration !== undefined ? settings.prepDuration : 5;
                     this.repetitions = settings.repetitions || 10;
-                    this.selectedSound = settings.selectedSound || 'beep';
-                    this.volume = settings.volume !== undefined ? settings.volume : 0.8;
+
+                    // Per-phase sound settings (with backward compatibility)
+                    if (settings.countdownSound) {
+                        this.countdownSound = settings.countdownSound;
+                        this.countdownVolume = settings.countdownVolume !== undefined ? settings.countdownVolume : 0.3;
+                        this.pauseSound = settings.pauseSound || 'tripleRing';
+                        this.pauseVolume = settings.pauseVolume !== undefined ? settings.pauseVolume : 0.7;
+                        this.exerciseSound = settings.exerciseSound || 'beep';
+                        this.exerciseVolume = settings.exerciseVolume !== undefined ? settings.exerciseVolume : 0.8;
+                    } else if (settings.selectedSound) {
+                        // Migration from old single sound setting
+                        this.countdownSound = 'click';
+                        this.countdownVolume = 0.3;
+                        this.pauseSound = 'tripleRing';
+                        this.pauseVolume = settings.volume !== undefined ? settings.volume * 0.7 : 0.7;
+                        this.exerciseSound = settings.selectedSound;
+                        this.exerciseVolume = settings.volume !== undefined ? settings.volume : 0.8;
+                    }
+
+                    this.keepScreenActive = settings.keepScreenActive || false;
 
                     document.getElementById('timerDuration').value = this.totalTime;
                     document.getElementById('prepDuration').value = this.prepTime;
                     document.getElementById('pauseDuration').value = this.pauseTime;
                     document.getElementById('repetitions').value = this.repetitions;
-                    document.getElementById('soundSelect').value = this.selectedSound;
-                    document.getElementById('volume').value = this.volume * 100;
-                    document.getElementById('volumeValue').textContent = Math.round(this.volume * 100);
+
+                    document.getElementById('countdownSound').value = this.countdownSound;
+                    document.getElementById('countdownVolume').value = this.countdownVolume * 100;
+                    document.getElementById('countdownVolumeValue').textContent = Math.round(this.countdownVolume * 100);
+
+                    document.getElementById('pauseSound').value = this.pauseSound;
+                    document.getElementById('pauseVolume').value = this.pauseVolume * 100;
+                    document.getElementById('pauseVolumeValue').textContent = Math.round(this.pauseVolume * 100);
+
+                    document.getElementById('exerciseSound').value = this.exerciseSound;
+                    document.getElementById('exerciseVolume').value = this.exerciseVolume * 100;
+                    document.getElementById('exerciseVolumeValue').textContent = Math.round(this.exerciseVolume * 100);
+
+                    document.getElementById('wakeLockToggle').checked = this.keepScreenActive;
 
                     this.currentTime = this.totalTime;
                 } catch (e) {
@@ -758,8 +1082,13 @@
                     pauseDuration: this.pauseTime,
                     prepDuration: this.prepTime,
                     repetitions: this.repetitions,
-                    selectedSound: this.selectedSound,
-                    volume: this.volume
+                    countdownSound: this.countdownSound,
+                    countdownVolume: this.countdownVolume,
+                    pauseSound: this.pauseSound,
+                    pauseVolume: this.pauseVolume,
+                    exerciseSound: this.exerciseSound,
+                    exerciseVolume: this.exerciseVolume,
+                    keepScreenActive: this.keepScreenActive
                 };
 
                 try {
@@ -808,8 +1137,12 @@
                     pauseDuration: this.pauseTime,
                     prepDuration: this.prepTime,
                     repetitions: this.repetitions,
-                    selectedSound: this.selectedSound,
-                    volume: this.volume
+                    countdownSound: this.countdownSound,
+                    countdownVolume: this.countdownVolume,
+                    pauseSound: this.pauseSound,
+                    pauseVolume: this.pauseVolume,
+                    exerciseSound: this.exerciseSound,
+                    exerciseVolume: this.exerciseVolume
                 };
 
                 this.presets.push(preset);
@@ -828,16 +1161,40 @@
                 this.pauseTime = preset.pauseDuration;
                 this.prepTime = preset.prepDuration !== undefined ? preset.prepDuration : 5;
                 this.repetitions = preset.repetitions;
-                this.selectedSound = preset.selectedSound;
-                this.volume = preset.volume;
+
+                // Load per-phase sound settings (with backward compatibility)
+                if (preset.countdownSound) {
+                    this.countdownSound = preset.countdownSound;
+                    this.countdownVolume = preset.countdownVolume !== undefined ? preset.countdownVolume : 0.3;
+                    this.pauseSound = preset.pauseSound || 'tripleRing';
+                    this.pauseVolume = preset.pauseVolume !== undefined ? preset.pauseVolume : 0.7;
+                    this.exerciseSound = preset.exerciseSound || 'beep';
+                    this.exerciseVolume = preset.exerciseVolume !== undefined ? preset.exerciseVolume : 0.8;
+                } else if (preset.selectedSound) {
+                    this.countdownSound = 'click';
+                    this.countdownVolume = 0.3;
+                    this.pauseSound = 'tripleRing';
+                    this.pauseVolume = preset.volume !== undefined ? preset.volume * 0.7 : 0.7;
+                    this.exerciseSound = preset.selectedSound;
+                    this.exerciseVolume = preset.volume !== undefined ? preset.volume : 0.8;
+                }
 
                 document.getElementById('timerDuration').value = this.totalTime;
                 document.getElementById('prepDuration').value = this.prepTime;
                 document.getElementById('pauseDuration').value = this.pauseTime;
                 document.getElementById('repetitions').value = this.repetitions;
-                document.getElementById('soundSelect').value = this.selectedSound;
-                document.getElementById('volume').value = this.volume * 100;
-                document.getElementById('volumeValue').textContent = Math.round(this.volume * 100);
+
+                document.getElementById('countdownSound').value = this.countdownSound;
+                document.getElementById('countdownVolume').value = this.countdownVolume * 100;
+                document.getElementById('countdownVolumeValue').textContent = Math.round(this.countdownVolume * 100);
+
+                document.getElementById('pauseSound').value = this.pauseSound;
+                document.getElementById('pauseVolume').value = this.pauseVolume * 100;
+                document.getElementById('pauseVolumeValue').textContent = Math.round(this.pauseVolume * 100);
+
+                document.getElementById('exerciseSound').value = this.exerciseSound;
+                document.getElementById('exerciseVolume').value = this.exerciseVolume * 100;
+                document.getElementById('exerciseVolumeValue').textContent = Math.round(this.exerciseVolume * 100);
 
                 if (!this.isRunning) {
                     this.currentTime = this.totalTime;
@@ -857,8 +1214,15 @@
                 preset.pauseDuration = this.pauseTime;
                 preset.prepDuration = this.prepTime;
                 preset.repetitions = this.repetitions;
-                preset.selectedSound = this.selectedSound;
-                preset.volume = this.volume;
+                preset.countdownSound = this.countdownSound;
+                preset.countdownVolume = this.countdownVolume;
+                preset.pauseSound = this.pauseSound;
+                preset.pauseVolume = this.pauseVolume;
+                preset.exerciseSound = this.exerciseSound;
+                preset.exerciseVolume = this.exerciseVolume;
+                // Remove old fields
+                delete preset.selectedSound;
+                delete preset.volume;
 
                 this.savePresetsToStorage();
                 this.updatePresetUI();
@@ -957,15 +1321,41 @@
                     this.saveSettings();
                 });
 
-                document.getElementById('soundSelect').addEventListener('change', (e) => {
-                    this.selectedSound = e.target.value;
-                    this.saveSettings();
+                // Per-phase sound settings
+                ['countdown', 'pause', 'exercise'].forEach(phase => {
+                    document.getElementById(`${phase}Sound`).addEventListener('change', (e) => {
+                        this[`${phase}Sound`] = e.target.value;
+                        this.saveSettings();
+                    });
+
+                    document.getElementById(`${phase}Volume`).addEventListener('input', (e) => {
+                        this[`${phase}Volume`] = e.target.value / 100;
+                        document.getElementById(`${phase}VolumeValue`).textContent = e.target.value;
+                        this.saveSettings();
+                    });
+
+                    document.getElementById(`test${phase.charAt(0).toUpperCase() + phase.slice(1)}Sound`).addEventListener('click', () => {
+                        this.playSound(phase);
+                    });
                 });
 
-                document.getElementById('volume').addEventListener('input', (e) => {
-                    this.volume = e.target.value / 100;
-                    document.getElementById('volumeValue').textContent = e.target.value;
+                // Sound section collapsible headers
+                document.querySelectorAll('.sound-section-header').forEach(header => {
+                    header.addEventListener('click', () => {
+                        const sectionId = header.dataset.section;
+                        document.getElementById(sectionId).classList.toggle('open');
+                    });
+                });
+
+                // Wake lock toggle
+                document.getElementById('wakeLockToggle').addEventListener('change', (e) => {
+                    this.keepScreenActive = e.target.checked;
                     this.saveSettings();
+                    if (this.keepScreenActive && this.isRunning) {
+                        this.requestWakeLock();
+                    } else if (!this.keepScreenActive) {
+                        this.releaseWakeLock();
+                    }
                 });
 
                 // Settings modal events
@@ -991,8 +1381,9 @@
                 });
 
                 document.addEventListener('visibilitychange', () => {
-                    if (document.hidden && this.isRunning && !this.isPaused) {
-                        // Optional: Pause when app goes to background
+                    if (!document.hidden && this.isRunning && this.keepScreenActive) {
+                        // Re-request wake lock when page becomes visible
+                        this.requestWakeLock();
                     }
                 });
 
@@ -1084,6 +1475,10 @@
                 this.isPaused = false;
                 this.lastTickTime = performance.now();
 
+                if (this.keepScreenActive) {
+                    this.requestWakeLock();
+                }
+
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
                 this.startRingAnimation();
@@ -1094,6 +1489,7 @@
                 this.isPaused = false;
                 clearInterval(this.intervalId);
                 this.stopRingAnimation();
+                this.releaseWakeLock();
                 this.currentRepetition = 0;
                 this.currentTime = this.totalTime;
                 this.isInBreak = false;
@@ -1147,14 +1543,14 @@
                 if (this.currentTime <= 0) {
                     if (this.isInPrep) {
                         // Ende der Vorbereitungszeit - zur ersten Übung
-                        this.playSound('main');
+                        this.playSound('exercise');
                         this.vibrate();
                         this.isInPrep = false;
                         this.currentRepetition = 1;
                         this.currentTime = this.totalTime;
                     } else if (this.isInBreak) {
-                        // Ende der Pause - normaler Beep
-                        this.playSound('main');
+                        // Ende der Pause - Übungston
+                        this.playSound('exercise');
                         this.vibrate();
 
                         this.isInBreak = false;
@@ -1169,14 +1565,14 @@
                     } else {
                         // Ende der Übung
                         if (this.currentRepetition < this.repetitions && this.pauseTime > 0) {
-                            // Start der Pause - Klingeln
-                            this.playSound('breakStart');
+                            // Start der Pause - Pausenton
+                            this.playSound('pause');
                             this.vibrate();
                             this.isInBreak = true;
                             this.currentTime = this.pauseTime;
                         } else {
                             // Keine Pause - direkt zur nächsten Übung
-                            this.playSound('main');
+                            this.playSound('exercise');
                             this.vibrate();
                             this.currentRepetition++;
 
@@ -1258,6 +1654,26 @@
                 repetitionCounter.textContent = `Übung ${this.currentRepetition} / ${this.repetitions}`;
 
                 this.updateRing();
+            }
+
+            async requestWakeLock() {
+                try {
+                    if ('wakeLock' in navigator) {
+                        this.wakeLockSentinel = await navigator.wakeLock.request('screen');
+                        this.wakeLockSentinel.addEventListener('release', () => {
+                            this.wakeLockSentinel = null;
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Wake Lock failed:', e);
+                }
+            }
+
+            releaseWakeLock() {
+                if (this.wakeLockSentinel) {
+                    this.wakeLockSentinel.release();
+                    this.wakeLockSentinel = null;
+                }
             }
 
             updateRing() {
