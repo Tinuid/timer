@@ -835,6 +835,8 @@
 
                 this.audioContext = null;
                 this.sounds = {};
+                this.notificationPermission = Notification?.permission || 'denied';
+                this.pendingPhaseSound = null;
 
                 this.presets = [];
                 this.currentPresetId = null;
@@ -1412,6 +1414,11 @@
 
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden && this.isRunning) {
+                        // Ausstehenden Phasenwechsel-Sound abspielen
+                        if (this.pendingPhaseSound) {
+                            this.playSound(this.pendingPhaseSound);
+                            this.pendingPhaseSound = null;
+                        }
                         if (!this.isPaused) {
                             // Timer sofort synchronisieren wenn Tab wieder sichtbar wird
                             this.tick();
@@ -1525,6 +1532,8 @@
                 this.isPaused = false;
                 this.lastTickTime = performance.now();
                 this.phaseEndTime = Date.now() + this.currentTime * 1000;
+
+                this.requestNotificationPermission();
 
                 if (this.keepScreenActive) {
                     this.requestWakeLock();
@@ -1648,9 +1657,19 @@
 
                 // Ton für die aktuelle Phase abspielen
                 if (this.isInBreak) {
-                    this.playSound('pause');
+                    if (document.hidden) {
+                        this.pendingPhaseSound = 'pause';
+                        this.showNotification('Pause', `Pause – nächste Übung ${this.currentRepetition + 1} von ${this.repetitions}`);
+                    } else {
+                        this.playSound('pause');
+                    }
                 } else if (!this.isInPrep) {
-                    this.playSound('exercise');
+                    if (document.hidden) {
+                        this.pendingPhaseSound = 'exercise';
+                        this.showNotification('Übung', `Übung ${this.currentRepetition} von ${this.repetitions}`);
+                    } else {
+                        this.playSound('exercise');
+                    }
                 }
                 this.vibrate();
 
@@ -1661,6 +1680,10 @@
             }
 
             complete() {
+                if (document.hidden) {
+                    this.showNotification('Fertig!', 'Alle Übungen abgeschlossen – gut gemacht!');
+                }
+
                 this.stop();
 
                 const timerStatus = document.getElementById('timerStatus');
@@ -1744,6 +1767,41 @@
                 if (this.wakeLockSentinel) {
                     this.wakeLockSentinel.release();
                     this.wakeLockSentinel = null;
+                }
+            }
+
+            async requestNotificationPermission() {
+                if (!('Notification' in window)) return;
+                if (Notification.permission === 'granted') {
+                    this.notificationPermission = 'granted';
+                    return;
+                }
+                if (Notification.permission !== 'denied') {
+                    const result = await Notification.requestPermission();
+                    this.notificationPermission = result;
+                }
+            }
+
+            showNotification(title, body) {
+                if (this.notificationPermission !== 'granted') return;
+                if (!document.hidden) return;
+                try {
+                    new Notification(title, {
+                        body: body,
+                        icon: 'assets/icons/icon-192.png',
+                        tag: 'timer-phase',
+                        renotify: true
+                    });
+                } catch (e) {
+                    // Fallback for environments where Notification constructor fails
+                    navigator.serviceWorker?.ready?.then(reg => {
+                        reg.showNotification(title, {
+                            body: body,
+                            icon: 'assets/icons/icon-192.png',
+                            tag: 'timer-phase',
+                            renotify: true
+                        });
+                    });
                 }
             }
 
