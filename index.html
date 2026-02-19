@@ -822,6 +822,8 @@
                 this.intervalId = null;
                 this.animationFrameId = null;
                 this.lastTickTime = 0;
+                this.phaseEndTime = 0;
+                this.timerWorker = null;
                 this.countdownSound = 'click';
                 this.countdownVolume = 0.3;
                 this.pauseSound = 'tripleRing';
@@ -833,18 +835,48 @@
 
                 this.audioContext = null;
                 this.sounds = {};
+                this.notificationPermission = Notification?.permission || 'denied';
+                this.pendingPhaseSound = null;
 
                 this.presets = [];
                 this.currentPresetId = null;
 
                 this.circleCircumference = 2 * Math.PI * 140;
 
+                this.initWorker();
                 this.initAudio();
                 this.loadSettings();
                 this.loadPresets();
                 this.bindEvents();
                 this.updateDisplay();
                 this.updatePresetUI();
+            }
+
+            initWorker() {
+                try {
+                    const workerCode = `
+                        let intervalId = null;
+                        self.onmessage = function(e) {
+                            if (e.data === 'start') {
+                                if (intervalId) clearInterval(intervalId);
+                                intervalId = setInterval(() => self.postMessage('tick'), 250);
+                            } else if (e.data === 'stop') {
+                                if (intervalId) clearInterval(intervalId);
+                                intervalId = null;
+                            }
+                        };
+                    `;
+                    const blob = new Blob([workerCode], { type: 'application/javascript' });
+                    this.timerWorker = new Worker(URL.createObjectURL(blob));
+                    this.timerWorker.onmessage = () => {
+                        if (this.isRunning && !this.isPaused) {
+                            this.tick();
+                        }
+                    };
+                } catch (e) {
+                    console.warn('Web Worker not available, falling back to setInterval');
+                    this.timerWorker = null;
+                }
             }
 
             initAudio() {
@@ -1381,9 +1413,19 @@
                 });
 
                 document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden && this.isRunning && this.keepScreenActive) {
-                        // Re-request wake lock when page becomes visible
-                        this.requestWakeLock();
+                    if (!document.hidden && this.isRunning) {
+                        // Ausstehenden Phasenwechsel-Sound abspielen
+                        if (this.pendingPhaseSound) {
+                            this.playSound(this.pendingPhaseSound);
+                            this.pendingPhaseSound = null;
+                        }
+                        if (!this.isPaused) {
+                            // Timer sofort synchronisieren wenn Tab wieder sichtbar wird
+                            this.tick();
+                        }
+                        if (this.keepScreenActive) {
+                            this.requestWakeLock();
+                        }
                     }
                 });
 
@@ -1458,6 +1500,21 @@
                 document.getElementById('settingsModal').classList.remove('active');
             }
 
+            startTickInterval() {
+                if (this.timerWorker) {
+                    this.timerWorker.postMessage('start');
+                }
+                // Keep setInterval as fallback (Worker handles background ticking)
+                this.intervalId = setInterval(() => this.tick(), 1000);
+            }
+
+            stopTickInterval() {
+                if (this.timerWorker) {
+                    this.timerWorker.postMessage('stop');
+                }
+                clearInterval(this.intervalId);
+            }
+
             start() {
                 if (this.currentRepetition === 0) {
                     // Bei neuem Start: Prep-Phase wenn prepTime > 0
@@ -1474,12 +1531,15 @@
                 this.isRunning = true;
                 this.isPaused = false;
                 this.lastTickTime = performance.now();
+                this.phaseEndTime = Date.now() + this.currentTime * 1000;
+
+                this.requestNotificationPermission();
 
                 if (this.keepScreenActive) {
                     this.requestWakeLock();
                 }
 
-                this.intervalId = setInterval(() => this.tick(), 1000);
+                this.startTickInterval();
                 this.updateDisplay();
                 this.startRingAnimation();
             }
@@ -1487,7 +1547,7 @@
             stop() {
                 this.isRunning = false;
                 this.isPaused = false;
-                clearInterval(this.intervalId);
+                this.stopTickInterval();
                 this.stopRingAnimation();
                 this.releaseWakeLock();
                 this.currentRepetition = 0;
@@ -1499,7 +1559,7 @@
 
             pause() {
                 this.isPaused = true;
-                clearInterval(this.intervalId);
+                this.stopTickInterval();
                 this.stopRingAnimation();
                 this.updateDisplay();
             }
@@ -1507,7 +1567,8 @@
             resume() {
                 this.isPaused = false;
                 this.lastTickTime = performance.now();
-                this.intervalId = setInterval(() => this.tick(), 1000);
+                this.phaseEndTime = Date.now() + this.currentTime * 1000;
+                this.startTickInterval();
                 this.updateDisplay();
                 this.startRingAnimation();
             }
@@ -1532,27 +1593,41 @@
             }
 
             tick() {
-                this.lastTickTime = performance.now();
-                this.currentTime--;
+                const now = Date.now();
+                const remainingMs = this.phaseEndTime - now;
+                const prevTime = this.currentTime;
 
-                // Countdown-Beeps in den letzten 3 Sekunden (Übung, Pause und Vorbereitung)
-                if (this.currentTime > 0 && this.currentTime <= 3) {
-                    this.playSound('countdown');
+                if (remainingMs > 0) {
+                    // Noch in der aktuellen Phase
+                    this.currentTime = Math.ceil(remainingMs / 1000);
+                    this.lastTickTime = performance.now();
+
+                    // Countdown-Beeps in den letzten 3 Sekunden
+                    if (this.currentTime > 0 && this.currentTime <= 3 && this.currentTime < prevTime) {
+                        this.playSound('countdown');
+                    }
+
+                    this.updateDisplay();
+                } else {
+                    // Phase beendet - weiter zur nächsten Phase
+                    this.advancePhase(now);
                 }
+            }
 
-                if (this.currentTime <= 0) {
+            advancePhase(now) {
+                let phasesSkipped = 0;
+                const maxSkips = this.repetitions * 2 + 2;
+
+                while (this.phaseEndTime <= now && this.isRunning && phasesSkipped < maxSkips) {
+                    phasesSkipped++;
+
                     if (this.isInPrep) {
                         // Ende der Vorbereitungszeit - zur ersten Übung
-                        this.playSound('exercise');
-                        this.vibrate();
                         this.isInPrep = false;
                         this.currentRepetition = 1;
-                        this.currentTime = this.totalTime;
+                        this.phaseEndTime += this.totalTime * 1000;
                     } else if (this.isInBreak) {
-                        // Ende der Pause - Übungston
-                        this.playSound('exercise');
-                        this.vibrate();
-
+                        // Ende der Pause - nächste Übung
                         this.isInBreak = false;
                         this.currentRepetition++;
 
@@ -1561,19 +1636,13 @@
                             return;
                         }
 
-                        this.currentTime = this.totalTime;
+                        this.phaseEndTime += this.totalTime * 1000;
                     } else {
                         // Ende der Übung
                         if (this.currentRepetition < this.repetitions && this.pauseTime > 0) {
-                            // Start der Pause - Pausenton
-                            this.playSound('pause');
-                            this.vibrate();
                             this.isInBreak = true;
-                            this.currentTime = this.pauseTime;
+                            this.phaseEndTime += this.pauseTime * 1000;
                         } else {
-                            // Keine Pause - direkt zur nächsten Übung
-                            this.playSound('exercise');
-                            this.vibrate();
                             this.currentRepetition++;
 
                             if (this.currentRepetition > this.repetitions) {
@@ -1581,15 +1650,40 @@
                                 return;
                             }
 
-                            this.currentTime = this.totalTime;
+                            this.phaseEndTime += this.totalTime * 1000;
                         }
                     }
                 }
 
+                // Ton für die aktuelle Phase abspielen
+                if (this.isInBreak) {
+                    if (document.hidden) {
+                        this.pendingPhaseSound = 'pause';
+                        this.showNotification('Pause', `Pause – nächste Übung ${this.currentRepetition + 1} von ${this.repetitions}`);
+                    } else {
+                        this.playSound('pause');
+                    }
+                } else if (!this.isInPrep) {
+                    if (document.hidden) {
+                        this.pendingPhaseSound = 'exercise';
+                        this.showNotification('Übung', `Übung ${this.currentRepetition} von ${this.repetitions}`);
+                    } else {
+                        this.playSound('exercise');
+                    }
+                }
+                this.vibrate();
+
+                const remainingMs = this.phaseEndTime - now;
+                this.currentTime = Math.ceil(remainingMs / 1000);
+                this.lastTickTime = performance.now();
                 this.updateDisplay();
             }
 
             complete() {
+                if (document.hidden) {
+                    this.showNotification('Fertig!', 'Alle Übungen abgeschlossen – gut gemacht!');
+                }
+
                 this.stop();
 
                 const timerStatus = document.getElementById('timerStatus');
@@ -1673,6 +1767,41 @@
                 if (this.wakeLockSentinel) {
                     this.wakeLockSentinel.release();
                     this.wakeLockSentinel = null;
+                }
+            }
+
+            async requestNotificationPermission() {
+                if (!('Notification' in window)) return;
+                if (Notification.permission === 'granted') {
+                    this.notificationPermission = 'granted';
+                    return;
+                }
+                if (Notification.permission !== 'denied') {
+                    const result = await Notification.requestPermission();
+                    this.notificationPermission = result;
+                }
+            }
+
+            showNotification(title, body) {
+                if (this.notificationPermission !== 'granted') return;
+                if (!document.hidden) return;
+                try {
+                    new Notification(title, {
+                        body: body,
+                        icon: 'assets/icons/icon-192.png',
+                        tag: 'timer-phase',
+                        renotify: true
+                    });
+                } catch (e) {
+                    // Fallback for environments where Notification constructor fails
+                    navigator.serviceWorker?.ready?.then(reg => {
+                        reg.showNotification(title, {
+                            body: body,
+                            icon: 'assets/icons/icon-192.png',
+                            tag: 'timer-phase',
+                            renotify: true
+                        });
+                    });
                 }
             }
 
