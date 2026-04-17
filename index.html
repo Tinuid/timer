@@ -806,6 +806,8 @@
         </div>
     </div>
 
+    <audio id="silentKeepalive" loop playsinline preload="auto"></audio>
+
     <script>
         class TimerManager {
             constructor() {
@@ -822,6 +824,10 @@
                 this.intervalId = null;
                 this.animationFrameId = null;
                 this.lastTickTime = 0;
+                this.phaseEndTime = null;
+                this.remainingOnPause = null;
+                this.silentAudio = null;
+                this.lastCountdownSecond = -1;
                 this.countdownSound = 'click';
                 this.countdownVolume = 0.3;
                 this.pauseSound = 'tripleRing';
@@ -1381,9 +1387,16 @@
                 });
 
                 document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden && this.isRunning && this.keepScreenActive) {
-                        // Re-request wake lock when page becomes visible
-                        this.requestWakeLock();
+                    if (!document.hidden && this.isRunning) {
+                        if (this.keepScreenActive) {
+                            // Re-request wake lock when page becomes visible
+                            this.requestWakeLock();
+                        }
+                        if (!this.isPaused) {
+                            // Catch up immediately in case setInterval was
+                            // throttled while the tab was hidden.
+                            this.tick();
+                        }
                     }
                 });
 
@@ -1474,10 +1487,14 @@
                 this.isRunning = true;
                 this.isPaused = false;
                 this.lastTickTime = performance.now();
+                this.phaseEndTime = Date.now() + this.currentTime * 1000;
 
                 if (this.keepScreenActive) {
                     this.requestWakeLock();
                 }
+
+                this.startKeepalive();
+                this.setupMediaSession();
 
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
@@ -1490,10 +1507,14 @@
                 clearInterval(this.intervalId);
                 this.stopRingAnimation();
                 this.releaseWakeLock();
+                this.stopKeepalive();
+                this.clearMediaSession();
                 this.currentRepetition = 0;
                 this.currentTime = this.totalTime;
                 this.isInBreak = false;
                 this.isInPrep = false;
+                this.phaseEndTime = null;
+                this.remainingOnPause = null;
                 this.updateDisplay();
             }
 
@@ -1501,12 +1522,26 @@
                 this.isPaused = true;
                 clearInterval(this.intervalId);
                 this.stopRingAnimation();
+                this.remainingOnPause = Math.max(0, this.phaseEndTime - Date.now());
+                this.stopKeepalive();
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = 'paused';
+                }
                 this.updateDisplay();
             }
 
             resume() {
                 this.isPaused = false;
                 this.lastTickTime = performance.now();
+                const remainingMs = this.remainingOnPause != null
+                    ? this.remainingOnPause
+                    : this.currentTime * 1000;
+                this.phaseEndTime = Date.now() + remainingMs;
+                this.remainingOnPause = null;
+                this.startKeepalive();
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = 'playing';
+                }
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
                 this.startRingAnimation();
@@ -1532,61 +1567,88 @@
             }
 
             tick() {
-                this.lastTickTime = performance.now();
-                this.currentTime--;
+                if (!this.isRunning || this.isPaused || this.phaseEndTime == null) return;
 
-                // Countdown-Beeps in den letzten 3 Sekunden (Übung, Pause und Vorbereitung)
-                if (this.currentTime > 0 && this.currentTime <= 3) {
-                    this.playSound('countdown');
+                this.lastTickTime = performance.now();
+
+                const remainingMs = this.phaseEndTime - Date.now();
+                this.currentTime = Math.max(0, Math.ceil(remainingMs / 1000));
+
+                if (remainingMs > 0) {
+                    if (this.currentTime > 0 && this.currentTime <= 3
+                            && this.currentTime !== this.lastCountdownSecond) {
+                        this.playSound('countdown');
+                        this.lastCountdownSecond = this.currentTime;
+                    }
+                    this.updateDisplay();
+                    return;
                 }
 
-                if (this.currentTime <= 0) {
+                // Phase is over - advance through as many phases as needed
+                this.advancePhase();
+                if (this.isRunning) this.updateDisplay();
+            }
+
+            advancePhase() {
+                // Loop until we land in a phase whose end is in the future,
+                // or the workout completes. Only play the sound for the phase
+                // we actually land in (skipped phases stay silent).
+                let guard = 0;
+                while (this.phaseEndTime != null && Date.now() >= this.phaseEndTime) {
+                    if (guard++ > 1000) break; // safety
+
+                    let nextPhaseDuration = 0;
+                    let nextSound = null;
+
                     if (this.isInPrep) {
-                        // Ende der Vorbereitungszeit - zur ersten Übung
-                        this.playSound('exercise');
-                        this.vibrate();
+                        // End of prep -> first exercise
                         this.isInPrep = false;
                         this.currentRepetition = 1;
-                        this.currentTime = this.totalTime;
+                        nextPhaseDuration = this.totalTime;
+                        nextSound = 'exercise';
                     } else if (this.isInBreak) {
-                        // Ende der Pause - Übungston
-                        this.playSound('exercise');
-                        this.vibrate();
-
+                        // End of break -> next exercise
                         this.isInBreak = false;
                         this.currentRepetition++;
-
                         if (this.currentRepetition > this.repetitions) {
                             this.complete();
                             return;
                         }
-
-                        this.currentTime = this.totalTime;
+                        nextPhaseDuration = this.totalTime;
+                        nextSound = 'exercise';
                     } else {
-                        // Ende der Übung
+                        // End of exercise
                         if (this.currentRepetition < this.repetitions && this.pauseTime > 0) {
-                            // Start der Pause - Pausenton
-                            this.playSound('pause');
-                            this.vibrate();
                             this.isInBreak = true;
-                            this.currentTime = this.pauseTime;
+                            nextPhaseDuration = this.pauseTime;
+                            nextSound = 'pause';
                         } else {
-                            // Keine Pause - direkt zur nächsten Übung
-                            this.playSound('exercise');
-                            this.vibrate();
                             this.currentRepetition++;
-
                             if (this.currentRepetition > this.repetitions) {
                                 this.complete();
                                 return;
                             }
-
-                            this.currentTime = this.totalTime;
+                            nextPhaseDuration = this.totalTime;
+                            nextSound = 'exercise';
                         }
                     }
-                }
 
-                this.updateDisplay();
+                    // Anchor the next phase to the previous phase boundary, not
+                    // to "now", so that catch-up through multiple phases stays
+                    // wall-clock accurate.
+                    this.phaseEndTime = this.phaseEndTime + nextPhaseDuration * 1000;
+                    this.currentTime = nextPhaseDuration;
+                    this.lastCountdownSecond = -1;
+
+                    // Only play sound/vibrate if we actually land in this phase
+                    // (i.e., its end is still in the future after advancing).
+                    if (Date.now() < this.phaseEndTime) {
+                        this.playSound(nextSound);
+                        this.vibrate();
+                        // Re-sync currentTime for display
+                        this.currentTime = Math.max(0, Math.ceil((this.phaseEndTime - Date.now()) / 1000));
+                    }
+                }
             }
 
             complete() {
@@ -1656,6 +1718,105 @@
                 this.updateRing();
             }
 
+            createSilentWavBlob() {
+                // 1 second of silence, 8 kHz, 8-bit unsigned mono.
+                // Real decoded audio — Chrome requires this to classify the
+                // tab as "playing audio" (which exempts it from background
+                // throttling of setInterval and keeps AudioContext running).
+                const sampleRate = 8000;
+                const numSamples = sampleRate;
+                const buffer = new ArrayBuffer(44 + numSamples);
+                const view = new DataView(buffer);
+                const writeStr = (offset, s) => {
+                    for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+                };
+                writeStr(0, 'RIFF');
+                view.setUint32(4, 36 + numSamples, true);
+                writeStr(8, 'WAVE');
+                writeStr(12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);       // PCM
+                view.setUint16(22, 1, true);       // mono
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate, true);
+                view.setUint16(32, 1, true);       // block align
+                view.setUint16(34, 8, true);       // bits/sample
+                writeStr(36, 'data');
+                view.setUint32(40, numSamples, true);
+                new Uint8Array(buffer, 44, numSamples).fill(128); // 0x80 = silence for unsigned 8-bit
+                return new Blob([buffer], { type: 'audio/wav' });
+            }
+
+            startKeepalive() {
+                try {
+                    if (!this.silentAudio) {
+                        this.silentAudio = document.getElementById('silentKeepalive');
+                        if (this.silentAudio && !this.silentAudio.src) {
+                            this.silentAudio.src = URL.createObjectURL(this.createSilentWavBlob());
+                            this.silentAudio.volume = 0;
+                        }
+                    }
+                    if (this.silentAudio) {
+                        const p = this.silentAudio.play();
+                        if (p && typeof p.catch === 'function') {
+                            p.catch(e => console.warn('Silent keepalive play failed:', e));
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not start keepalive:', e);
+                }
+            }
+
+            stopKeepalive() {
+                try {
+                    if (this.silentAudio) {
+                        this.silentAudio.pause();
+                    }
+                } catch (e) {
+                    console.warn('Could not stop keepalive:', e);
+                }
+            }
+
+            setupMediaSession() {
+                if (!('mediaSession' in navigator)) return;
+                try {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: 'Timer läuft',
+                        artist: 'Workout Timer'
+                    });
+                    navigator.mediaSession.playbackState = 'playing';
+                    navigator.mediaSession.setActionHandler('pause', () => {
+                        if (this.isRunning && !this.isPaused) {
+                            this.pause();
+                            this.updateDisplay();
+                        }
+                    });
+                    navigator.mediaSession.setActionHandler('play', () => {
+                        if (this.isRunning && this.isPaused) {
+                            this.resume();
+                        }
+                    });
+                    navigator.mediaSession.setActionHandler('stop', () => {
+                        if (this.isRunning) this.stop();
+                    });
+                } catch (e) {
+                    console.warn('MediaSession setup failed:', e);
+                }
+            }
+
+            clearMediaSession() {
+                if (!('mediaSession' in navigator)) return;
+                try {
+                    navigator.mediaSession.playbackState = 'none';
+                    navigator.mediaSession.metadata = null;
+                    ['play', 'pause', 'stop'].forEach(a => {
+                        try { navigator.mediaSession.setActionHandler(a, null); } catch (_) {}
+                    });
+                } catch (e) {
+                    console.warn('MediaSession clear failed:', e);
+                }
+            }
+
             async requestWakeLock() {
                 try {
                     if ('wakeLock' in navigator) {
@@ -1684,10 +1845,9 @@
                 const currentMaxTime = this.isInPrep ? this.prepTime : (this.isInBreak ? this.pauseTime : this.totalTime);
 
                 let progressPercent;
-                if (this.isRunning && !this.isPaused) {
-                    // Interpoliere zwischen den Sekunden-Ticks für flüssige Animation
-                    const elapsed = (performance.now() - this.lastTickTime) / 1000;
-                    const smoothTime = Math.max(0, this.currentTime - elapsed);
+                if (this.isRunning && !this.isPaused && this.phaseEndTime != null) {
+                    // Wall-clock interpolation: smooth across the whole phase
+                    const smoothTime = Math.max(0, (this.phaseEndTime - Date.now()) / 1000);
                     progressPercent = smoothTime / currentMaxTime;
                 } else if (this.isRunning) {
                     progressPercent = this.currentTime / currentMaxTime;
