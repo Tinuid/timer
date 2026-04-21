@@ -827,6 +827,9 @@
                 this.phaseEndTime = null;
                 this.remainingOnPause = null;
                 this.silentAudio = null;
+                this.soundElements = {};
+                this.soundBlobUrls = {};
+                this.soundVersions = {};
                 this.lastCountdownSecond = -1;
                 this.countdownSound = 'click';
                 this.countdownVolume = 0.3;
@@ -849,6 +852,9 @@
                 this.loadSettings();
                 this.loadPresets();
                 this.bindEvents();
+                // Sounds direkt vorrendern, damit die <audio>-Elemente beim
+                // Start des Timers bereits geladen sind.
+                this.prepareSounds();
                 this.updateDisplay();
                 this.updatePresetUI();
             }
@@ -897,42 +903,57 @@
                 }
             }
 
-            async playSound(phase) {
-                if (!this.audioContext) return;
-                try {
-                    if (this.audioContext.state === 'suspended') {
-                        await this.audioContext.resume();
+            playSound(phase) {
+                const volumeMap = {
+                    countdown: this.countdownVolume,
+                    pause: this.pauseVolume,
+                    exercise: this.exerciseVolume
+                };
+                const volume = volumeMap[phase];
+                if (volume == null) return;
+
+                const el = this.soundElements[phase];
+                if (el && el.src) {
+                    try {
+                        el.volume = Math.max(0, Math.min(1, volume));
+                        el.currentTime = 0;
+                        const p = el.play();
+                        if (p && typeof p.catch === 'function') {
+                            p.catch(e => console.warn(`Play ${phase} failed:`, e));
+                        }
+                        return;
+                    } catch (e) {
+                        console.warn(`playSound(${phase}) via element failed, falling back:`, e);
                     }
+                }
 
-                    const phaseSettings = {
-                        countdown: { sound: this.countdownSound, volume: this.countdownVolume },
-                        pause: { sound: this.pauseSound, volume: this.pauseVolume },
-                        exercise: { sound: this.exerciseSound, volume: this.exerciseVolume }
-                    };
-
-                    const settings = phaseSettings[phase];
-                    if (!settings) return;
-
-                    const isCountdown = phase === 'countdown';
-                    this.synthesizeSound(settings.sound, settings.volume, isCountdown);
-                } catch (e) {
-                    console.warn('Could not play sound:', e);
+                // Fallback: Wenn das Element noch nicht bereit ist (z. B. Rendern
+                // noch nicht abgeschlossen), synthetisiere live über WebAudio.
+                // Im Hintergrund kann der AudioContext suspendiert sein, dann
+                // bleibt es stumm — aber die Elemente sollten beim Start bereit
+                // sein, sodass dieser Pfad nur in Randfällen greift.
+                if (this.audioContext) {
+                    try {
+                        if (this.audioContext.state === 'suspended') {
+                            this.audioContext.resume();
+                        }
+                        const soundMap = {
+                            countdown: this.countdownSound,
+                            pause: this.pauseSound,
+                            exercise: this.exerciseSound
+                        };
+                        this.synthesizeSound(this.audioContext, soundMap[phase], volume, phase === 'countdown');
+                    } catch (e) {
+                        console.warn('Could not play sound:', e);
+                    }
                 }
             }
 
             playTestSound(phase) {
-                const phaseSettings = {
-                    countdown: { sound: this.countdownSound, volume: this.countdownVolume },
-                    pause: { sound: this.pauseSound, volume: this.pauseVolume },
-                    exercise: { sound: this.exerciseSound, volume: this.exerciseVolume }
-                };
-                const settings = phaseSettings[phase];
-                if (!settings) return;
                 this.playSound(phase);
             }
 
-            synthesizeSound(soundName, volume, short = false) {
-                const ctx = this.audioContext;
+            synthesizeSound(ctx, soundName, volume, short = false) {
                 const now = ctx.currentTime;
 
                 if (short) {
@@ -942,19 +963,19 @@
                         gong: 200, doubleBeep: 800, tripleRing: 1000,
                         softPing: 440, alarm: 800, trumpet: 523, harp: 880, click: 1000
                     };
-                    this.playTone(freqMap[soundName] || 600, 'sine', 0.1, volume * 0.5);
+                    this.playTone(ctx, freqMap[soundName] || 600, 'sine', 0.1, volume * 0.5);
                     return;
                 }
 
                 switch (soundName) {
                     case 'beep':
-                        this.playTone(800, 'square', 0.5, volume);
+                        this.playTone(ctx, 800, 'square', 0.5, volume);
                         break;
                     case 'chime':
-                        this.playTone(1200, 'square', 0.5, volume);
+                        this.playTone(ctx, 1200, 'square', 0.5, volume);
                         break;
                     case 'bell':
-                        this.playTone(600, 'sine', 0.8, volume);
+                        this.playTone(ctx, 600, 'sine', 0.8, volume);
                         break;
                     case 'whistle': {
                         const osc = ctx.createOscillator();
@@ -971,44 +992,43 @@
                         break;
                     }
                     case 'gong':
-                        this.playTone(200, 'sine', 1.5, volume);
+                        this.playTone(ctx, 200, 'sine', 1.5, volume);
                         break;
                     case 'doubleBeep':
-                        this.playTone(800, 'square', 0.1, volume, 0);
-                        this.playTone(800, 'square', 0.1, volume, 0.2);
+                        this.playTone(ctx, 800, 'square', 0.1, volume, 0);
+                        this.playTone(ctx, 800, 'square', 0.1, volume, 0.2);
                         break;
                     case 'tripleRing':
                         for (let i = 0; i < 3; i++) {
-                            this.playTone(1000, 'sine', 0.2, volume * 0.7, i * 0.25);
+                            this.playTone(ctx, 1000, 'sine', 0.2, volume * 0.7, i * 0.25);
                         }
                         break;
                     case 'softPing':
-                        this.playTone(440, 'sine', 0.3, volume);
+                        this.playTone(ctx, 440, 'sine', 0.3, volume);
                         break;
                     case 'alarm':
-                        this.playTone(800, 'square', 0.25, volume, 0);
-                        this.playTone(600, 'square', 0.25, volume, 0.3);
+                        this.playTone(ctx, 800, 'square', 0.25, volume, 0);
+                        this.playTone(ctx, 600, 'square', 0.25, volume, 0.3);
                         break;
                     case 'trumpet':
-                        this.playTone(523, 'sawtooth', 0.6, volume);
+                        this.playTone(ctx, 523, 'sawtooth', 0.6, volume);
                         break;
                     case 'harp': {
                         const notes = [523, 440, 349, 262];
                         notes.forEach((freq, i) => {
-                            this.playTone(freq, 'sine', 0.4, volume * 0.8, i * 0.12);
+                            this.playTone(ctx, freq, 'sine', 0.4, volume * 0.8, i * 0.12);
                         });
                         break;
                     }
                     case 'click':
-                        this.playTone(1000, 'square', 0.05, volume);
+                        this.playTone(ctx, 1000, 'square', 0.05, volume);
                         break;
                     default:
-                        this.playTone(800, 'square', 0.5, volume);
+                        this.playTone(ctx, 800, 'square', 0.5, volume);
                 }
             }
 
-            playTone(freq, type, duration, volume, delay = 0) {
-                const ctx = this.audioContext;
+            playTone(ctx, freq, type, duration, volume, delay = 0) {
                 const now = ctx.currentTime + delay;
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
@@ -1020,6 +1040,145 @@
                 gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
                 osc.start(now);
                 osc.stop(now + duration + 0.01);
+            }
+
+            // Dauer der längsten möglichen Synthese-Ausgabe pro Sound — bestimmt
+            // die Buffer-Länge des OfflineAudioContext beim Vorrendern.
+            soundDuration(soundName, short) {
+                if (short) return 0.15;
+                switch (soundName) {
+                    case 'gong': return 1.6;
+                    case 'bell': return 0.9;
+                    case 'whistle': return 0.7;
+                    case 'trumpet': return 0.7;
+                    case 'tripleRing': return 0.7;   // 3 × 0.2s mit 0.25s Abstand
+                    case 'harp': return 0.9;         // 4 × 0.4s mit 0.12s Abstand
+                    case 'alarm': return 0.6;        // 2 × 0.25s mit 0.3s Abstand
+                    case 'doubleBeep': return 0.35;
+                    case 'beep': case 'chime': return 0.55;
+                    case 'softPing': return 0.35;
+                    case 'click': return 0.08;
+                    default: return 0.6;
+                }
+            }
+
+            // AudioBuffer → 16-bit PCM WAV-Blob. Wird nach OfflineAudioContext
+            // rendering aufgerufen, damit wir das Ergebnis in ein <audio>-Element
+            // laden können — HTMLAudioElement wird im Hintergrund deutlich
+            // robuster abgespielt als Web Audio Oscillators.
+            audioBufferToWav(buffer) {
+                const numChannels = 1;
+                const sampleRate = buffer.sampleRate;
+                const data = buffer.getChannelData(0);
+                const bytesPerSample = 2;
+                const dataSize = data.length * bytesPerSample;
+                const arrayBuffer = new ArrayBuffer(44 + dataSize);
+                const view = new DataView(arrayBuffer);
+                const writeStr = (off, s) => {
+                    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+                };
+                writeStr(0, 'RIFF');
+                view.setUint32(4, 36 + dataSize, true);
+                writeStr(8, 'WAVE');
+                writeStr(12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+                view.setUint16(32, numChannels * bytesPerSample, true);
+                view.setUint16(34, 16, true);
+                writeStr(36, 'data');
+                view.setUint32(40, dataSize, true);
+                for (let i = 0; i < data.length; i++) {
+                    const s = Math.max(-1, Math.min(1, data[i]));
+                    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                }
+                return new Blob([arrayBuffer], { type: 'audio/wav' });
+            }
+
+            async renderPhaseSound(phase) {
+                const cfg = {
+                    countdown: { sound: this.countdownSound, short: true },
+                    pause:     { sound: this.pauseSound,     short: false },
+                    exercise:  { sound: this.exerciseSound,  short: false }
+                }[phase];
+                if (!cfg || !cfg.sound) return;
+
+                const version = (this.soundVersions[phase] || 0) + 1;
+                this.soundVersions[phase] = version;
+
+                const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                if (!Offline) return;
+
+                try {
+                    const sampleRate = 44100;
+                    const durationSec = this.soundDuration(cfg.sound, cfg.short) + 0.05;
+                    const offlineCtx = new Offline(1, Math.ceil(sampleRate * durationSec), sampleRate);
+                    // Bei Volumen 1.0 rendern; die Abspiel-Lautstärke wird später
+                    // über element.volume skaliert, damit Lautstärke-Änderungen
+                    // kein Neu-Rendern erzwingen.
+                    this.synthesizeSound(offlineCtx, cfg.sound, 1.0, cfg.short);
+                    const renderedBuffer = await offlineCtx.startRendering();
+
+                    // Falls inzwischen eine neuere Version angestoßen wurde, verwerfen.
+                    if (this.soundVersions[phase] !== version) return;
+
+                    const blob = this.audioBufferToWav(renderedBuffer);
+                    const url = URL.createObjectURL(blob);
+
+                    let el = this.soundElements[phase];
+                    if (!el) {
+                        el = new Audio();
+                        el.preload = 'auto';
+                        el.playsInline = true;
+                        this.soundElements[phase] = el;
+                    }
+                    const oldUrl = this.soundBlobUrls[phase];
+                    el.src = url;
+                    el.load();
+                    this.soundBlobUrls[phase] = url;
+                    if (oldUrl) {
+                        try { URL.revokeObjectURL(oldUrl); } catch (_) {}
+                    }
+                } catch (e) {
+                    console.warn(`Could not render sound for phase "${phase}":`, e);
+                }
+            }
+
+            async prepareSounds() {
+                await Promise.all([
+                    this.renderPhaseSound('countdown'),
+                    this.renderPhaseSound('pause'),
+                    this.renderPhaseSound('exercise')
+                ]);
+            }
+
+            // Innerhalb der User-Gesture (Start-Tap) stumm kurz play()/pause()
+            // auf jedem Sound-Element aufrufen — hebt die Autoplay-Sperre auf,
+            // sodass spätere play()-Aufrufe aus setInterval (insbesondere im
+            // Hintergrund) nicht von Chrome blockiert werden.
+            primeSoundElements() {
+                for (const phase of ['countdown', 'pause', 'exercise']) {
+                    const el = this.soundElements[phase];
+                    if (!el || !el.src) continue;
+                    try {
+                        const prevVolume = el.volume;
+                        el.volume = 0;
+                        el.currentTime = 0;
+                        const p = el.play();
+                        const restore = () => {
+                            try { el.pause(); el.currentTime = 0; el.volume = prevVolume; } catch (_) {}
+                        };
+                        if (p && typeof p.then === 'function') {
+                            p.then(restore).catch(restore);
+                        } else {
+                            restore();
+                        }
+                    } catch (e) {
+                        console.warn(`Priming ${phase} failed:`, e);
+                    }
+                }
             }
 
             vibrate() {
@@ -1207,6 +1366,8 @@
                     this.updateDisplay();
                 }
 
+                this.prepareSounds();
+
                 this.currentPresetId = id;
                 localStorage.setItem('currentPresetId', id);
                 this.updatePresetUI();
@@ -1332,6 +1493,7 @@
                     document.getElementById(`${phase}Sound`).addEventListener('change', (e) => {
                         this[`${phase}Sound`] = e.target.value;
                         this.saveSettings();
+                        this.renderPhaseSound(phase);
                     });
 
                     document.getElementById(`${phase}Volume`).addEventListener('input', (e) => {
@@ -1495,6 +1657,7 @@
 
                 this.startKeepalive();
                 this.setupMediaSession();
+                this.primeSoundElements();
 
                 this.intervalId = setInterval(() => this.tick(), 1000);
                 this.updateDisplay();
